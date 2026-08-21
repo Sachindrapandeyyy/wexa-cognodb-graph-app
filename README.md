@@ -34,7 +34,7 @@
 6. [openCypher Query Catalog & SQL Comparisons](#opencypher-query-catalog--sql-comparisons)
 7. [Quick Start Guide](#quick-start-guide)
 8. [Automated Verification & Testing](#automated-verification--testing)
-9. [Submission Information](#submission-information)
+9. [License & Project Details](#license--project-details)
 
 ---
 
@@ -535,15 +535,14 @@ backend/test_app.py::test_cypher_execution PASSED                        [100%]
 
 ---
 
-## Submission Information
+## License & Project Details
 
-* **Candidate**: **Sachindra Pandey**
-* **Email**: **`hr@wexa.ai`**
-* **Subject**: **`CognoDB Assignment 2 - Sachindra Pandey`**
+* **Author**: **Sachindra Pandey**
 * **GitHub Repository**: **[https://github.com/Sachindrapandeyyy/wexa-cognodb-graph-app](https://github.com/Sachindrapandeyyy/wexa-cognodb-graph-app)**
 * **Technology Stack**: **CognoDB Cloud** (openCypher / Bolt 5.0-5.4), **Python 3.14**, **FastAPI**, **Official Neo4j Driver**, **React 18**, **TypeScript**, **Tailwind CSS**, **Vis-Network**.
+* **License**: **MIT License** -- see [LICENSE](LICENSE) for details.
 
 ---
 <div align="center">
-Built with passion for the Wexa Take-Home Assignment
+Built with passion for cloud security graph intelligence
 </div>
