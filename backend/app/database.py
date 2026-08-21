@@ -42,9 +42,30 @@ class GraphService:
     def is_mock(self) -> bool:
         return self._is_mock
 
+    @is_mock.setter
+    def is_mock(self, val: bool):
+        self._is_mock = val
+
     @property
     def last_error(self) -> Optional[str]:
         return self._last_error
+
+    @last_error.setter
+    def last_error(self, err: Optional[str]):
+        self._last_error = err
+
+    @property
+    def driver(self) -> Optional[Driver]:
+        return self._driver
+
+    @driver.setter
+    def driver(self, d: Optional[Driver]):
+        self._driver = d
+
+    def set_live_driver(self, driver: Driver):
+        self._driver = driver
+        self._is_mock = False
+        self._last_error = None
 
     def execute_query(self, query_str: str, params: Optional[Dict[str, Any]] = None):
         if params is None:
@@ -60,10 +81,6 @@ class GraphService:
             if settings.DEMO_MODE_FALLBACK:
                 from app.mock_engine import run_mock_query
                 return run_mock_query(query_str, params)
-            raise
-
-    def close(self):
-        if self._driver:
-            self._driver.close()
+            raise e
 
 graph_service = GraphService()

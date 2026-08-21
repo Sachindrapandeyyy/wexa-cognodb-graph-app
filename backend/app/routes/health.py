@@ -35,19 +35,30 @@ def check_health():
 def test_connection(payload: TestConnectionRequest):
     from neo4j import GraphDatabase
     try:
+        clean_uri = payload.uri.strip()
+        clean_user = payload.user.strip()
+        clean_pass = payload.password.strip()
+        clean_db = (payload.database or "neo4j").strip()
+
         driver = GraphDatabase.driver(
-            payload.uri.strip(),
-            auth=(payload.user.strip(), payload.password.strip()),
+            clean_uri,
+            auth=(clean_user, clean_pass),
+            max_connection_lifetime=3600,
+            max_connection_pool_size=50,
             connection_acquisition_timeout=5.0
         )
-        with driver.session(database=payload.database or "neo4j") as session:
+        with driver.session(database=clean_db) as session:
             res = session.run("RETURN 1 AS ok")
             rec = res.single()
             if rec and rec["ok"] == 1:
-                # Dynamically switch the live graph service to this verified driver
-                graph_service.driver = driver
-                graph_service.is_mock = False
-                graph_service.last_error = None
+                # Update live graph service driver
+                graph_service.set_live_driver(driver)
+                
+                # Update global settings in memory
+                settings.COGNODB_URI = clean_uri
+                settings.COGNODB_USER = clean_user
+                settings.COGNODB_PASSWORD = clean_pass
+                settings.COGNODB_DATABASE = clean_db
                 
                 # Fetch live node count
                 count_res = session.run("MATCH (n) RETURN count(n) AS cnt").single()
