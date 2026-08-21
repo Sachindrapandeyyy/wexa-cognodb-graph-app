@@ -16,7 +16,7 @@ export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   connectionStatus,
   onConnectionUpdated,
 }) => {
-  const [uri, setUri] = useState<string>(connectionStatus?.uri || 'bolt+s://<instance-id>.databases.cognodb.cloud');
+  const [uri, setUri] = useState<string>(connectionStatus?.uri || 'bolt+s://db-c50a18eb.bravo.databases.cognodb.com');
   const [user, setUser] = useState<string>('cognodb');
   const [password, setPassword] = useState<string>('');
   const [isTesting, setIsTesting] = useState<boolean>(false);

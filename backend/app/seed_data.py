@@ -990,7 +990,7 @@ def generate_cypher_seed_queries() -> List[Dict[str, Any]]:
     for rel in RELATIONSHIPS:
         rel_type = rel["type"]
         queries.append({
-            "query": f"MATCH (s {{id: $source_id}}), (t {{id: $target_id}}) CREATE (s)-[r:{rel_type} $props]->(t)",
+            "query": f"MATCH (s {{id: $source_id}}), (t {{id: $target_id}}) CREATE (s)-[r:{rel_type}]->(t) SET r += $props",
             "params": {
                 "source_id": rel["source"],
                 "target_id": rel["target"],
