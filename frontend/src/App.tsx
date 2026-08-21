@@ -90,7 +90,7 @@ export const App: React.FC = () => {
   const crownJewelsCount = (graphData.nodes || []).filter(n => n.properties?.is_crown_jewel).length;
 
   return (
-    <div className="min-h-screen bg-[#fafafa] flex flex-col text-slate-900 selection:bg-purple-100 selection:text-purple-900 pb-16">
+    <div className="min-h-screen bg-white wexa-hero-bg flex flex-col text-[#09090b] selection:bg-[#ede6ff] selection:text-[#7e14ff] pb-20">
       
       {/* Top Floating Navbar (Wexa style) */}
       <Navbar
@@ -103,44 +103,69 @@ export const App: React.FC = () => {
         crownJewelCount={crownJewelsCount}
       />
 
-      {/* Hero Section (Wexa AI Typography Style) */}
-      <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 pt-4 pb-6 flex flex-col items-center text-center">
+      {/* Hero Section with Iconic Wexa Waves & Typography */}
+      <section className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 pt-6 pb-8 flex flex-col items-center text-center overflow-hidden">
         
-        {/* Top Feature Pill */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-purple-50 border border-purple-200/80 text-purple-700 text-xs font-semibold mb-4 shadow-xs">
+        {/* Background Decorative Sinusoidal SVG Waves (Signature Wexa visual) */}
+        <div className="absolute inset-0 pointer-events-none -z-10 flex items-center justify-center opacity-40">
+          <svg viewBox="0 0 1200 300" className="w-full h-full text-[#863bff]/20">
+            <path
+              d="M0,150 C300,50 600,250 900,100 C1050,25 1150,200 1200,150"
+              fill="none"
+              stroke="rgba(134, 59, 255, 0.35)"
+              strokeWidth="1.5"
+            />
+            <path
+              d="M0,160 C280,70 620,230 880,110 C1030,40 1140,180 1200,160"
+              fill="none"
+              stroke="rgba(134, 59, 255, 0.25)"
+              strokeWidth="1"
+            />
+            <path
+              d="M0,140 C320,30 580,270 920,90 C1070,10 1160,220 1200,140"
+              fill="none"
+              stroke="rgba(134, 59, 255, 0.18)"
+              strokeWidth="1"
+            />
+          </svg>
+        </div>
+
+        {/* Top Feature Pill (Wexa Style) */}
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#ede6ff] border border-[#863bff]/30 text-[#7e14ff] text-xs font-bold mb-5 shadow-xs">
           <Sparkles className="w-3.5 h-3.5" />
           <span>Powered by CognoDB Managed Graph Cloud</span>
-          <ArrowRight className="w-3 h-3 text-purple-400" />
+          <ArrowRight className="w-3 h-3 text-[#7e14ff]" />
         </div>
 
         {/* Main Hero Headline */}
-        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-slate-950 max-w-4xl leading-[1.15] mb-4">
+        <h1 className="text-4xl sm:text-6xl lg:text-[68px] font-black tracking-tight text-black max-w-4xl leading-[1.1] mb-5">
           The World's Fastest <br className="hidden sm:inline" />
-          <span className="text-slate-950">Cloud Attack Graph</span> Platform
+          <span>Cloud Attack Graph</span> Platform
         </h1>
 
-        {/* Hero Subheading */}
-        <p className="text-sm sm:text-base text-slate-600 max-w-2xl leading-relaxed mb-6">
-          AegisGraph traverses multi-cloud IAM permissions, container escapes, and KMS trust chains to illuminate 
-          <strong className="text-slate-900 font-semibold"> multi-hop attack vectors </strong> 
-          and calculate blast radius in milliseconds over openCypher.
+        {/* Hero Subheading with Purple Accent */}
+        <p className="text-sm sm:text-base text-slate-700 max-w-2xl leading-relaxed mb-7 font-normal">
+          AegisGraph gives security teams live, authorized graph intelligence to cut compromise discovery time by{' '}
+          <strong className="text-[#7e14ff] font-extrabold text-base">98.7%</strong>, uncover multi-hop attack vectors, 
+          and govern IAM blast radiuses before production breach.
         </p>
 
-        {/* Quick Action CTAs */}
-        <div className="flex flex-wrap items-center justify-center gap-3">
+        {/* Quick Action CTAs (Pitch Black & Crisp White Pills) */}
+        <div className="flex flex-wrap items-center justify-center gap-3.5">
           <button
             onClick={() => setActiveTab('attack-paths')}
-            className="flex items-center gap-2 bg-slate-950 hover:bg-slate-800 text-white font-semibold text-xs sm:text-sm px-5 py-2.5 rounded-full shadow-sm transition-all cursor-pointer"
+            className="flex items-center gap-2.5 bg-black hover:bg-[#1a1a1e] text-white font-bold text-xs sm:text-sm px-6 py-3 rounded-full shadow-[0_4px_14px_rgba(0,0,0,0.15)] transition-all cursor-pointer"
           >
             <span>Explore Attack Paths</span>
-            <ArrowRight className="w-4 h-4 text-slate-400" />
+            <ArrowRight className="w-4 h-4 text-white" />
           </button>
 
           <button
             onClick={() => setActiveTab('chokepoints')}
-            className="flex items-center gap-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 font-semibold text-xs sm:text-sm px-5 py-2.5 rounded-full shadow-xs transition-all cursor-pointer"
+            className="flex items-center gap-2 bg-white hover:bg-[#f6f1ff] border border-[#863bff]/25 text-black font-bold text-xs sm:text-sm px-6 py-3 rounded-full shadow-xs transition-all cursor-pointer"
           >
             <span>Simulate Chokepoint Patch</span>
+            <ArrowRight className="w-4 h-4 text-[#7e14ff]" />
           </button>
         </div>
       </section>
@@ -152,13 +177,13 @@ export const App: React.FC = () => {
         <section className="flex flex-col gap-2">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-slate-500" />
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-700">Interactive Topology Graph</span>
+              <Layers className="w-4 h-4 text-[#7e14ff]" />
+              <span className="text-xs font-bold uppercase tracking-wider text-black">Interactive Topology Graph</span>
             </div>
             {highlightPathNodeIds.length > 0 && (
               <button
                 onClick={() => { setHighlightPathNodeIds([]); setActivePathId(null); }}
-                className="text-xs font-semibold text-rose-600 hover:text-rose-700 cursor-pointer"
+                className="text-xs font-bold text-rose-600 hover:text-rose-700 cursor-pointer"
               >
                 Clear Highlights
               </button>
