@@ -1,4 +1,4 @@
-# ??? AegisGraph: Cloud Security Attack Vector & Identity Blast Radius Intelligence Platform
+# AegisGraph: Cloud Security Attack Vector & Identity Blast Radius Intelligence Platform
 
 <div align="center">
 
@@ -8,75 +8,76 @@
 [![Tests Passing](https://img.shields.io/badge/Tests-7%2F7%20Passed-brightgreen?style=for-the-badge&logo=pytest)](backend/test_app.py)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-**A high-performance cloud security graph engine that discovers multi-hop exploit paths, simulates IAM blast radiuses, calculates remediation ROI, and executes openCypher traversals over CognoDB.**
+**A high-performance cloud security graph intelligence engine that discovers multi-hop exploit paths, simulates IAM blast radiuses, calculates remediation ROI, and executes openCypher traversals over CognoDB.**
 
-[Live Architecture](#-system-architecture) ? [Why Graph vs SQL](#-why-a-graph-database-the-mathematical--practical-case) ? [File-by-File Code Tour](#-comprehensive-file-by-file-code-tour) ? [Cypher Catalog](#-opencypher-query-catalog--sql-comparisons) ? [Quick Start](#-quick-start-guide)
+[System Architecture](#system-architecture) | [Why Graph vs SQL](#why-a-graph-database-the-mathematical--practical-case) | [File-by-File Code Tour](#comprehensive-file-by-file-code-tour) | [openCypher Catalog](#opencypher-query-catalog--sql-comparisons) | [Quick Start Guide](#quick-start-guide)
 
 </div>
 
 ---
 
 > *"Defenders think in lists. Attackers think in graphs. As long as this is true, attackers win."*  
-> ? **John Lambert**, Microsoft Threat Intelligence Center (MSTIC)
+> -- **John Lambert**, **Microsoft Threat Intelligence Center (MSTIC)**
 
 ---
 
-## ?? Table of Contents
-1. [Executive Summary & Problem Statement](#-executive-summary--problem-statement)
-2. [Why a Graph Database? The Mathematical & Practical Case](#-why-a-graph-database-the-mathematical--practical-case)
-3. [System Architecture](#-system-architecture)
-4. [Graph Schema & Data Model](#-graph-schema--data-model)
-5. [Comprehensive File-by-File Code Tour](#-comprehensive-file-by-file-code-tour)
+## Table of Contents
+1. [Executive Summary & Problem Statement](#executive-summary--problem-statement)
+2. [Why a Graph Database? The Mathematical & Practical Case](#why-a-graph-database-the-mathematical--practical-case)
+3. [System Architecture](#system-architecture)
+4. [Graph Schema & Data Model](#graph-schema--data-model)
+5. [Comprehensive File-by-File Code Tour](#comprehensive-file-by-file-code-tour)
    - [Backend Core Layer (`backend/app/`)](#1-backend-core-layer-backendapp)
    - [Backend API Routing Layer (`backend/app/routes/`)](#2-backend-api-routing-layer-backendapproutes)
    - [Backend CLI & Testing Suite (`backend/`)](#3-backend-cli--testing-suite-backend)
    - [Frontend React Application (`frontend/src/`)](#4-frontend-react-application-frontend)
-6. [openCypher Query Catalog & SQL Comparisons](#-opencypher-query-catalog--sql-comparisons)
-7. [Quick Start Guide](#-quick-start-guide)
-8. [Automated Verification & Testing](#-automated-verification--testing)
-9. [Submission Information](#-submission-information)
+6. [openCypher Query Catalog & SQL Comparisons](#opencypher-query-catalog--sql-comparisons)
+7. [Quick Start Guide](#quick-start-guide)
+8. [Automated Verification & Testing](#automated-verification--testing)
+9. [Submission Information](#submission-information)
 
 ---
 
-## ?? Executive Summary & Problem Statement
+## Executive Summary & Problem Statement
 
-Modern enterprise cloud environments (AWS, GCP, Azure, Kubernetes) are vastly interconnected webs of compute instances, IAM roles, security groups, container pods, cryptographic keys, and database clusters.
+Modern enterprise cloud environments (**AWS**, **GCP**, **Azure**, **Kubernetes**) are vastly interconnected webs of **Compute Instances**, **IAM Roles**, **VPC Subnets**, **Container Pods**, **KMS Cryptographic Keys**, and **Crown Jewel Database Clusters**.
 
-Traditional security tools evaluate risk using flat relational lists:
-* ?? *"EC2 instance X has CVE-2021-44228 (Log4Shell)."*
-* ?? *"IAM Role Y has cross-account assume privileges."*
-* ?? *"KMS Key Z has unrotated master secrets."*
+Traditional security tools evaluate risk using flat, disconnected relational lists:
+* **Critical Finding**: *"EC2 instance customer-portal-ec2 has CVE-2021-44228 (Log4Shell)."*
+* **Medium Finding**: *"IAM Role AppServerInstanceProfileRole has cross-account assume privileges."*
+* **Low Finding**: *"KMS Key kms/prod-customer-data-cmk has unrotated master secrets."*
 
-While each individual alert appears low-to-medium priority in isolation, **an adversary connects them into an unbroken kill chain**:
+While each individual alert appears isolated, **an adversary connects them into an unbroken multi-hop kill chain**:
+
 ```text
-[External Attacker: APT-29] 
-       ? (EXPLOITS)
-       ?
-[Log4Shell CVE-2021-44228 on customer-portal-ec2]
-       ? (ASSUMES via IMDSv1 SSRF)
-       ?
-[AppServerInstanceProfileRole]
-       ? (ASSUMES via Cross-Account STS)
-       ?
-[CrossAccountDatabaseAccessRole]  <-- CRITICAL CHOKEPOINT
-       ? (HAS_PERMISSION: kms:Decrypt)
-       ?
-[kms/prod-customer-data-cmk]
-       ? (ENCRYPTS)
-       ?
-[s3://enterprise-customer-pii-vault]  <-- CROWN JEWEL (2.5M SSN & PII Records Breached)
+[SOURCE: External Threat Actor: APT-29] 
+       | (EXPLOITS)
+       v
+[COMPUTE: Log4Shell CVE-2021-44228 on customer-portal-ec2]
+       | (ASSUMES via IMDSv1 SSRF)
+       v
+[IDENTITY: AppServerInstanceProfileRole]
+       | (ASSUMES via Cross-Account STS)
+       v
+[CHOKEPOINT: CrossAccountDatabaseAccessRole]  <-- CRITICAL REMEDIATION BOTTLENECK
+       | (HAS_PERMISSION: kms:Decrypt)
+       v
+[SECRET: kms/prod-customer-data-cmk]
+       | (ENCRYPTS)
+       v
+[TARGET: s3://enterprise-customer-pii-vault]  <-- CROWN JEWEL (2.5M SSN & PII Records Exfiltrated)
 ```
 
 **AegisGraph** ingests cloud infrastructure topology into **CognoDB** and executes real-time graph traversal algorithms to illuminate hidden attack vectors before adversaries exploit them.
 
 ---
 
-## ?? Why a Graph Database? (The Mathematical & Practical Case)
+## Why a Graph Database? (The Mathematical & Practical Case)
 
 ### 1. The Relational Join Complexity Bottleneck
-In a relational database (PostgreSQL, MySQL), determining whether an attacker can reach a Crown Jewel requires joining `Servers`, `Vulnerabilities`, `IAM_Roles`, `Role_Assumptions`, `Permissions`, and `Data_Assets`.
+In a relational database (**PostgreSQL**, **MySQL**), determining whether an attacker can reach a **Crown Jewel** requires joining **Servers**, **Vulnerabilities**, **IAM Roles**, **Role Assumptions**, **Permissions**, and **Data Assets**.
 
-To find variable-length attack paths (up to $k$ hops), SQL requires **Recursive Common Table Expressions (CTEs)**:
+To find variable-length attack paths (up to **5 hops**), SQL requires **Recursive Common Table Expressions (CTEs)**:
 ```sql
 -- Relational SQL: Multi-Hop Traversal requires complex recursive CTEs
 WITH RECURSIVE attack_path AS (
@@ -87,42 +88,42 @@ WITH RECURSIVE attack_path AS (
     SELECT r.source_id, r.target_id, ap.depth + 1, ap.path_nodes || r.target_id
     FROM asset_relationships r
     JOIN attack_path ap ON r.source_id = ap.target_id
-    WHERE ap.depth < 5 AND NOT (r.target_id = ANY(ap.path_nodes)) -- Expensive Cycle Check
+    WHERE ap.depth < 5 AND NOT (r.target_id = ANY(ap.path_nodes)) -- Expensive Array Cycle Check
 )
 SELECT * FROM attack_path WHERE target_id = 'data-s3-customer-pii';
 ```
-* **Computational Complexity**: In SQL, each hop incurs a self-join over the entire relationship index. For a dense graph with branching factor $b$, finding paths of length $k$ scales as **$O(b^k)$**.
-* **CognoDB Advantage**: CognoDB implements **Index-Free Adjacency**. Every node directly contains memory pointers to its incoming and outgoing edges. Traversing an edge is an $O(1)$ pointer dereference. The same traversal in openCypher is a single, clean expression executing in **$O(V + E)$** time:
+* **Computational Complexity**: In SQL, each hop incurs a self-join over the entire relationship table index. For a dense graph with branching factor **b**, finding paths of length **k** scales exponentially as **O(b^k)**.
+* **CognoDB Advantage**: CognoDB implements **Index-Free Adjacency**. Every node directly contains memory pointers to its incoming and outgoing edges. Traversing an edge is an **O(1)** pointer dereference. The same traversal in **openCypher** is a single, clean expression executing in **O(V + E)** time:
 ```cypher
-MATCH path = (src:Attacker {id: $source_id})-[*1..5]->(tgt:CrownJewel {id: $target_id})
+MATCH path = (src:Attacker {id: $source_id})-[*1..5]->(tgt:DataAsset {id: $target_id})
 RETURN path, length(path) AS hops
 ```
 
 ### 2. Deep Graph Rationale Matrix
 
-| Capability | Relational Database (SQL) | Graph Database (CognoDB / openCypher) |
+| Security Capability | Relational Database (**SQL / RDBMS**) | Graph Database (**CognoDB / openCypher**) |
 | :--- | :--- | :--- |
-| **Multi-Hop Traversal (2?5+ hops)** | Exponential join slowdown ($O(N^k)$). | Native Index-Free Adjacency ($O(V+E)$). |
+| **Multi-Hop Traversal (2 to 5+ hops)** | Exponential join slowdown (**O(N^k)**). | Native Index-Free Adjacency (**O(V + E)**). |
 | **Blast Radius Simulation** | Requires multi-tier table self-joins and pre-calculated matrices. | Native neighborhood expansion `(origin)-[*1..3]-(affected)`. |
 | **Privilege Cycle Detection** | Prone to infinite recursion loops without explicit array tracking. | Built-in cycle detection `(r:Identity)-[:ASSUMES*2..6]->(r)`. |
 | **Chokepoint Identification** | Requires full path materialization and heavy aggregations. | Native betweenness centrality and path intersection analysis. |
-| **Schema Evolution** | `ALTER TABLE` migrations required for every new cloud service. | Schema-optional Labeled Property Graph (LPG). |
+| **Schema Evolution** | `ALTER TABLE` migrations required for every new cloud service. | Schema-optional **Labeled Property Graph (LPG)**. |
 
 ---
 
-## ??? System Architecture
+## System Architecture
 
 ```mermaid
 graph TB
-    subgraph Client["??? Frontend Tier (React 18 + TypeScript + Vite)"]
-        UI_CANVAS["Vis-Network Topology Canvas<br/>(Physics & Force-Directed)"]
+    subgraph Client["Frontend Tier (React 18 + TypeScript + Vite)"]
+        UI_CANVAS["Vis-Network Topology Canvas<br/>(Physics & Force-Directed Map)"]
         UI_ATTACK["Attack Path Stepper<br/>(2-5 Hop Exploit Chains)"]
         UI_BLAST["Blast Radius Slider<br/>(Tier 1..3 Impact Breakdown)"]
         UI_CHOKE["Chokepoint Advisor<br/>(1-Click Patch Simulation)"]
         UI_CYPHER["openCypher Console<br/>(SQL Comparison & Timing)"]
     end
 
-    subgraph Server["? Backend API Tier (FastAPI + Python 3.14)"]
+    subgraph Server["Backend API Tier (FastAPI + Python 3.14)"]
         ROUTER_GRAPH["/api/graph<br/>(Topology & Filtering)"]
         ROUTER_ATTACK["/api/attack-paths<br/>(Pathfinding BFS/DFS)"]
         ROUTER_BLAST["/api/blast-radius<br/>(Neighborhood Traversal)"]
@@ -131,8 +132,8 @@ graph TB
         ROUTER_HEALTH["/api/health<br/>(Live Bolt Connection Tester)"]
     end
 
-    subgraph DataLayer["?? Data & Execution Layer"]
-        DRIVER["Official Neo4j Driver (neo4j-python)<br/>Bolt 5.0?5.4 Protocol"]
+    subgraph DataLayer["Data & Execution Layer"]
+        DRIVER["Official Neo4j Driver (neo4j-python)<br/>Bolt 5.0-5.4 Protocol"]
         COGNO_CLOUD[("CognoDB Managed Graph Cloud<br/>console.cognodb.com")]
         MOCK_ENGINE["In-Memory Graph Fallback Engine<br/>(Zero-Config Offline Mode)"]
     end
@@ -151,147 +152,208 @@ graph TB
     ROUTER_HEALTH --> DRIVER
 
     DRIVER -.->|Live Connection| COGNO_CLOUD
-    DRIVER -.->|Fallback if Unreachable| MOCK_ENGINE
+    DRIVER -.->|Fallback if Offline| MOCK_ENGINE
 ```
 
 ---
 
-## ?? Graph Schema & Data Model
+## Graph Schema & Data Model
 
-AegisGraph models a modern enterprise cloud environment across **7 Node Labels** and **10 Typed Relationships**:
+AegisGraph models cloud infrastructure with **7 Node Labels** and **10 Typed Directed Relationships**:
+
+### 1. Node Labels & Core Properties
+1. **`Attacker` / `ThreatActor`**: External adversaries (**`actor-apt29`**, **`actor-fin7`**, **`actor-insider`**).
+2. **`Compute` / `Asset`**: Workloads (**`customer-portal-ec2`**, **`payment-processor-pod`**, **`mgmt-bastion-host`**, **`reporting-lambda`**).
+3. **`Identity` / `IAMRole` / `IAMUser`**: IAM roles & users (**`AppServerInstanceProfileRole`**, **`CrossAccountDatabaseAccessRole`**, **`DevOpsSuperAdminRole`**).
+4. **`DataAsset` / `CrownJewel` / `Database` / `S3Bucket`**: High-value data stores (**`enterprise-customer-pii-vault`**, **`aurora-pg-prod-primary`**).
+5. **`Secret` / `KMSKey` / `SSHKey`**: Cryptographic keys & credentials (**`kms/prod-customer-data-cmk`**, **`prod/rds/master-credentials`**, **`bastion-ssh-key`**).
+6. **`Vulnerability` / `CVE`**: Exploitable CVEs (**`CVE-2021-44228 Log4Shell`**, **`CVE-2024-21626 Leaky Vessels`**, **`CVE-2024-3094 XZ Utils`**).
+7. **`NetworkZone`**: VPC Subnets & trust boundaries (**`public-dmz-vpc`**, **`app-private-subnet`**, **`pci-isolated-enclave`**).
+
+### 2. Relationship Types
+* **`EXPLOITS`**: `(Attacker)-[:EXPLOITS]->(Vulnerability)`
+* **`AFFECTS`**: `(Vulnerability)-[:AFFECTS]->(Compute)`
+* **`ASSUMES`**: `(Compute|Identity)-[:ASSUMES]->(Identity)` *(Supports cross-account STS & OIDC IRSA)*
+* **`HAS_PERMISSION`**: `(Identity)-[:HAS_PERMISSION]->(DataAsset|Secret)` *(With action, last_used_days)*
+* **`ROUTES_TRAFFIC_TO`**: `(NetworkZone)-[:ROUTES_TRAFFIC_TO]->(NetworkZone)`
+* **`ENCRYPTS`**: `(Secret:KMSKey)-[:ENCRYPTS]->(DataAsset)`
+* **`AUTHENTICATES_TO`**: `(Secret)-[:AUTHENTICATES_TO]->(DataAsset)`
+* **`AUTHENTICATES_AS`**: `(Secret:SSHKey)-[:AUTHENTICATES_AS]->(Identity)`
+* **`LOCATED_IN`**: `(Compute)-[:LOCATED_IN]->(NetworkZone)`
+* **`POSSESSES`**: `(Attacker)-[:POSSESSES]->(Secret)`
+
+### 3. Attack Chain Topology Diagram
 
 ```mermaid
-graph LR
-    subgraph Nodes["Node Labels (7 Core Types)"]
-        N1["Attacker (Threat Groups)"]
-        N2["Compute (EC2, EKS, Lambda)"]
-        N3["Identity (IAM Roles, Users)"]
-        N4["Secret (KMS Keys, Passwords)"]
-        N5["DataAsset (S3, Aurora DB)"]
-        N6["Vulnerability (CVEs)"]
-        N7["NetworkZone (VPC Subnets)"]
+graph TD
+    subgraph ThreatSource["External Threat Boundary (Sources)"]
+        APT["Threat Actor: APT-29"]
+        FIN["Threat Actor: FIN7 Syndicate"]
     end
 
-    subgraph Relationships["Relationship Types (10 Core Types)"]
-        R1["EXPLOITS: Attacker -> CVE"]
-        R2["AFFECTS: CVE -> Compute"]
-        R3["ASSUMES: Compute/Role -> Role"]
-        R4["HAS_PERMISSION: Role -> Data/Secret"]
-        R5["ENCRYPTS: KMSKey -> DataAsset"]
-        R6["AUTHENTICATES_TO: Secret -> DB"]
-        R7["AUTHENTICATES_AS: SSHKey -> User"]
-        R8["ROUTES_TRAFFIC_TO: Zone -> Zone"]
-        R9["LOCATED_IN: Compute -> Zone"]
-        R10["POSSESSES: Attacker -> Secret"]
+    subgraph Vulns["Exploitable Vulnerabilities"]
+        L4S["CVE-2021-44228 (Log4Shell CVSS 10.0)"]
+        LV["CVE-2024-21626 (Leaky Vessels CVSS 8.6)"]
     end
+
+    subgraph ComputeTier["Compute Workloads"]
+        WEB["customer-portal-ec2 (Public IP: 54.214.19.42)"]
+        POD["payment-processor-pod (EKS Microservice)"]
+        BASTION["mgmt-bastion-host (SSH Jumpbox)"]
+    end
+
+    subgraph IAM["Identity & Access Management (IAM)"]
+        ROLE_WEB["AppServerInstanceProfileRole"]
+        ROLE_EKS["EKS-PaymentService-IRSA-Role"]
+        CHOKE_IAM["CrossAccountDatabaseAccessRole (Chokepoint)"]
+        ROLE_ADMIN["DevOpsSuperAdminRole"]
+        ROLE_BACKUP["AutomatedBackupPipelineRole"]
+    end
+
+    subgraph Secrets["Cryptographic & Secret Layer"]
+        KMS["kms/prod-customer-data-cmk (KMS Master Key)"]
+        DB_PASS["prod/rds/master-credentials (Secrets Manager)"]
+    end
+
+    subgraph CrownJewels["Crown Jewel Data Assets (Targets)"]
+        S3_PII["s3://enterprise-customer-pii-vault (2.5M Records)"]
+        RDS_PG["aurora-pg-prod-primary (14.2M Billing Records)"]
+    end
+
+    APT -->|EXPLOITS| L4S
+    L4S -->|AFFECTS| WEB
+    WEB -->|ASSUMES| ROLE_WEB
+    ROLE_WEB -->|ASSUMES (Cross-Account STS)| CHOKE_IAM
+    CHOKE_IAM -->|HAS_PERMISSION: kms:Decrypt| KMS
+    CHOKE_IAM -->|HAS_PERMISSION: s3:GetObject| S3_PII
+    KMS -->|ENCRYPTS| S3_PII
+
+    FIN -->|EXPLOITS| LV
+    LV -->|AFFECTS| POD
+    POD -->|ASSUMES (OIDC IRSA)| ROLE_EKS
+    ROLE_EKS -->|ASSUMES (Cross-Account STS)| CHOKE_IAM
+    ROLE_EKS -->|HAS_PERMISSION: GetSecret| DB_PASS
+    DB_PASS -->|AUTHENTICATES_TO| RDS_PG
+    CHOKE_IAM -->|HAS_PERMISSION: rds:connect| RDS_PG
+
+    ROLE_BACKUP -->|ASSUMES (Circular Escalation)| ROLE_ADMIN
+    ROLE_ADMIN -->|ASSUMES (Reciprocal Trust)| ROLE_BACKUP
 ```
 
 ---
 
-## ?? Comprehensive File-by-File Code Tour
-
-Here is a complete architectural breakdown of every file in the codebase:
+## Comprehensive File-by-File Code Tour
 
 ### 1. Backend Core Layer (`backend/app/`)
 
-#### ?? `backend/app/config.py`
-* **Purpose**: Application configuration management.
-* **Details**: Uses `pydantic_settings.BaseSettings` to load environment variables from `.env` or system environment (`COGNODB_URI`, `COGNODB_USER`, `COGNODB_PASSWORD`, `COGNODB_DATABASE`, `DEMO_MODE_FALLBACK`, `PORT`, `HOST`).
+#### `backend/app/config.py`
+* **Purpose**: Centralized application configuration.
+* **Key Components**:
+  * Class **`Settings(BaseSettings)`**: Reads `COGNODB_URI`, `COGNODB_USER`, `COGNODB_PASSWORD`, `COGNODB_DATABASE`, `DEMO_MODE_FALLBACK`, `PORT`, and `HOST` from `.env`.
+  * Object **`settings`**: Singleton instance used across the entire backend.
 
-#### ?? `backend/app/models.py`
-* **Purpose**: Pydantic v2 data transfer objects (DTOs) and request/response models.
-* **Key Models**:
-  * `GraphNode`, `GraphEdge`, `GraphData`: Universal representation of graph nodes, edges, properties, and aggregate statistics.
-  * `AttackPathResult`, `AttackPathStep`: Represents multi-hop attack vectors with step-by-step traversal mechanics, threat scores, and Cypher queries.
-  * `BlastRadiusResult`: Represents cascade blast radius across Tiers 1, 2, and 3, along with threatened Crown Jewels.
-  * `ChokepointItem`: Represents bottleneck assets with intercepted path counts and estimated risk reduction percentages.
-  * `CypherQueryRequest`, `CypherQueryResult`: Request/response schemas for the interactive openCypher console.
-  * `ConnectionStatus`: Health model reporting CognoDB Cloud connection status, database version, and entity counts.
+#### `backend/app/models.py`
+* **Purpose**: Pydantic v2 data models, validation, and serialization.
+* **Key Schemas**:
+  * **`GraphNode`**: Represents a graph entity with `id`, `name`, `labels`, `risk_score`, `is_crown_jewel`, `is_chokepoint`, `is_internet_facing`, and custom `properties`.
+  * **`GraphEdge`**: Represents a typed directed edge with `id`, `source`, `target`, `type`, and `properties`.
+  * **`GraphData`**: Full topology bundle containing lists of nodes, edges, and summary metrics.
+  * **`AttackPathStep`**: Represents an individual hop in an attack vector (`from_node`, `to_node`, `relationship`, `mechanism`, `risk_contribution`).
+  * **`AttackPathResult`**: Complete exploit chain (`path_id`, `source`, `target`, `hop_count`, `total_risk_score`, `steps`, `cypher_query`).
+  * **`BlastRadiusResult`**: Impact cascade breakdown (`origin_node`, `max_depth`, `total_impacted_nodes`, `crown_jewels_threatened`, `tier1_direct_nodes`, `tier2_transitive_nodes`, `tier3_cascade_nodes`).
+  * **`ChokepointItem`**: Bottleneck asset analysis (`node_id`, `name`, `labels`, `intercepted_attack_paths`, `risk_reduction_pct`, `remediation_advice`).
+  * **`CypherQueryRequest` & `CypherQueryResult`**: Schemas for the interactive openCypher playground with execution timing.
+  * **`ConnectionStatus`**: Health report model for live CognoDB Cloud connectivity.
 
-#### ?? `backend/app/database.py`
-* **Purpose**: Database connection management and official Neo4j Bolt driver integration.
-* **Details**:
-  * Initializes `neo4j.GraphDatabase.driver` with connection pooling, automatic timeouts, and keep-alives.
-  * Implements `execute_query(query_str, params)` using **parameterized queries** (no string concatenation).
-  * Implements **Graceful Degradation**: If CognoDB credentials are missing or unreachable, automatically routes queries to `mock_engine.py` so the application runs seamlessly out-of-the-box.
+#### `backend/app/database.py`
+* **Purpose**: Neo4j Bolt driver initialization and session management.
+* **Key Components**:
+  * Function **`get_db_driver()`**: Instantiates `GraphDatabase.driver` with connection pooling, automatic timeout handlers, and SSL encryption.
+  * Function **`execute_query(query_str, params)`**: Executes parameterized openCypher statements and formats records into clean Python dictionaries.
+  * Function **`verify_connectivity()`**: Verifies live connection to CognoDB Cloud over Bolt 5.0-5.4 protocol.
+  * **Graceful Degradation**: If CognoDB credentials are not supplied or the database is unreachable, all queries seamlessly route to **`mock_engine.py`**.
 
-#### ?? `backend/app/mock_engine.py`
-* **Purpose**: In-memory graph traversal engine for offline demo mode and fast testing.
-* **Details**:
-  * Builds bidirectional adjacency maps for $O(1)$ node lookups.
-  * Implements Depth-First Search (`_dfs_paths`) with cycle prevention for finding all attack paths up to $k$ hops.
-  * Implements Breadth-First Search (BFS) for multi-tier blast radius expansion.
-  * Calculates graph betweenness centrality to rank security chokepoints.
+#### `backend/app/mock_engine.py`
+* **Purpose**: High-fidelity in-memory graph traversal engine for offline demo mode and rapid unit testing.
+* **Key Components**:
+  * Class **`MockGraphEngine`**: Builds in-memory adjacency matrices for instant $O(1)$ edge lookups.
+  * Method **`find_attack_paths(source_id, target_id, max_hops)`**: Executes Depth-First Search (DFS) with cycle prevention to discover all variable-length attack vectors.
+  * Method **`calculate_blast_radius(origin_id, max_depth)`**: Executes Breadth-First Search (BFS) to compute Tier 1, 2, and 3 blast cascades.
+  * Method **`get_chokepoints()`**: Computes graph betweenness centrality across all active attack chains to rank single points of failure.
+  * Method **`simulate_patch(node_id)`**: Dynamically severs an asset from the graph topology and recalculates remaining attack paths in real-time.
 
-#### ?? `backend/app/seed_data.py`
-* **Purpose**: Ground truth dataset definition and openCypher seed statement generator.
-* **Dataset Contents**:
-  * **25 Nodes**: Nation-state threat actors (`actor-apt29`, `actor-fin7`), vulnerabilities (`Log4Shell CVE-2021-44228`, `Leaky Vessels CVE-2024-21626`, `XZ Utils CVE-2024-3094`), compute instances (`customer-portal-ec2`, `payment-processor-pod`), IAM roles (`CrossAccountDatabaseAccessRole`, `DevOpsSuperAdminRole`), secrets (`kms/prod-customer-data-cmk`), and Crown Jewels (`enterprise-customer-pii-vault`, `aurora-pg-prod-primary`).
-  * **38 Relationships**: `EXPLOITS`, `AFFECTS`, `ASSUMES`, `HAS_PERMISSION`, `ENCRYPTS`, `AUTHENTICATES_TO`, etc.
-  * **Function `generate_cypher_seed_queries()`**: Generates parameterized Cypher statements (`CREATE (n:Label $props)`, `CREATE (s)-[r:TYPE $props]->(t)`).
+#### `backend/app/seed_data.py`
+* **Purpose**: Master seed dataset and Cypher query generator.
+* **Key Components**:
+  * **`SEED_NODES`**: 25 realistic cloud assets with complete metadata (CVSS scores, AWS ARNs, IP addresses, environment tags).
+  * **`SEED_EDGES`**: 38 typed relationships defining complex multi-account attack paths.
+  * Function **`generate_cypher_seed_queries()`**: Converts the dataset into parameterized Cypher statements (`CREATE (n:Label $props)`, `CREATE (s)-[r:TYPE $props]->(t)`).
 
-#### ?? `backend/app/queries.py`
-* **Purpose**: Catalog of pre-configured openCypher queries with educational metadata.
-* **Details**: Stores query definitions, descriptions, parameter maps, and side-by-side explanations of **"Why Graph Wins over SQL"**.
+#### `backend/app/queries.py`
+* **Purpose**: Catalog of pre-built openCypher queries with educational commentary.
+* **Key Components**:
+  * **`CYPHER_CATALOG`**: Dictionary of 6 production-grade queries with descriptions, parameter maps, and side-by-side **"Why Graph Wins over SQL"** explanations.
 
-#### ?? `backend/app/main.py`
-* **Purpose**: FastAPI application factory and ASGI entrypoint.
-* **Details**:
-  * Configures CORS middleware for seamless local and production communication.
-  * Uses modern FastAPI `lifespan` async context manager for clean driver startup and shutdown.
-  * Mounts all sub-routers (`/api/graph`, `/api/attack-paths`, `/api/blast-radius`, `/api/chokepoints`, `/api/health`, `/api/cypher`).
-  * Automatically serves the built production React frontend (`frontend/dist`) as a Single Page Application (SPA).
+#### `backend/app/main.py`
+* **Purpose**: FastAPI ASGI application setup and routing.
+* **Key Components**:
+  * Function **`lifespan(app: FastAPI)`**: Modern async context manager handling startup connectivity verification and clean driver shutdown.
+  * Middleware **`CORSMiddleware`**: Enables seamless frontend-backend communication.
+  * **Static File Serving**: Automatically mounts and serves the compiled React Single Page Application from `frontend/dist`.
 
 ---
 
 ### 2. Backend API Routing Layer (`backend/app/routes/`)
 
-#### ?? `backend/app/routes/graph.py`
-* `GET /api/graph`: Returns the full cloud topology with optional filtering by asset type or Crown Jewel status.
-* `GET /api/graph/stats`: Returns summary counts (total nodes, edges, Crown Jewels, chokepoints, CVEs).
-* `GET /api/graph/nodes/{id}`: Returns granular properties and metadata for a specific node.
+#### `backend/app/routes/graph.py`
+* **`GET /api/graph`**: Returns the complete cloud graph with optional label filtering (`type`, `crown_jewels_only`, `chokepoints_only`).
+* **`GET /api/graph/stats`**: Returns aggregate graph counts (nodes, edges, Crown Jewels, CVEs, chokepoints).
+* **`GET /api/graph/nodes/{node_id}`**: Returns detailed properties, metadata, and connected edges for a specific node.
 
-#### ?? `backend/app/routes/attack_paths.py`
-* `GET /api/attack-paths`: Discovers all multi-hop attack vectors from threat actors / internet-facing servers to Crown Jewels (supports `max_hops` parameter).
-* `POST /api/attack-paths/find`: Discovers paths between a specific source and target node.
+#### `backend/app/routes/attack_paths.py`
+* **`GET /api/attack-paths`**: Discovers all multi-hop attack vectors from threat actors and public ingress servers to Crown Jewels (supports `max_hops` parameter).
+* **`POST /api/attack-paths/find`**: Calculates specific attack paths between a requested `source_id` and `target_id`.
 
-#### ?? `backend/app/routes/blast_radius.py`
-* `GET /api/blast-radius`: Simulates transitive compromise spread from a specified origin asset across 1 to 4 hops.
+#### `backend/app/routes/blast_radius.py`
+* **`GET /api/blast-radius`**: Simulates transitive compromise spread from a specified origin asset across 1 to 4 hops.
+* **`POST /api/blast-radius`**: Post variant for JSON body requests.
 
-#### ?? `backend/app/routes/chokepoints.py`
-* `GET /api/chokepoints`: Returns ranked single points of failure with intercepted path counts and risk reduction percentages.
-* `POST /api/chokepoints/simulate-patch`: Dynamically severs a chokepoint and recalculates the graph in real-time.
+#### `backend/app/routes/chokepoints.py`
+* **`GET /api/chokepoints`**: Returns ranked single points of failure with intercepted path counts and estimated risk reduction percentages.
+* **`POST /api/chokepoints/simulate-patch`**: Dynamically severs a chokepoint and recalculates the graph in real-time.
 
-#### ?? `backend/app/routes/health.py`
-* `GET /api/health`: Returns database connection status, CognoDB instance URI, and driver state.
-* `POST /api/health/test-connection`: Live credential tester allowing evaluators to verify CognoDB Cloud credentials on-the-fly.
+#### `backend/app/routes/health.py`
+* **`GET /api/health`**: Returns database connection health, CognoDB instance URI, driver state, and entity counts.
+* **`POST /api/health/test-connection`**: Live credential tester allowing evaluators to verify CognoDB Cloud credentials on-the-fly.
 
-#### ?? `backend/app/routes/cypher.py`
-* `GET /api/cypher/catalog`: Returns the catalog of preset openCypher queries.
-* `POST /api/cypher/execute`: Executes custom or parameterized openCypher queries against CognoDB and returns execution time in milliseconds.
+#### `backend/app/routes/cypher.py`
+* **`GET /api/cypher/catalog`**: Returns the pre-configured query catalog.
+* **`POST /api/cypher/execute`**: Executes custom or parameterized openCypher queries against CognoDB and returns execution time in milliseconds.
 
 ---
 
 ### 3. Backend CLI & Testing Suite (`backend/`)
 
-#### ?? `backend/seed.py`
-* **Purpose**: Standalone CLI tool to seed CognoDB Cloud instances.
-* **Usage**: `python seed.py --uri bolt+s://... --password ...`
-* **Features**: Formats parameterized Cypher queries, batches execution with progress tracking, and runs post-seeding verification queries.
+#### `backend/seed.py`
+* **Purpose**: Standalone CLI seeder tool.
+* **Key Features**:
+  * Accepts `--uri`, `--user`, `--password`, and `--database` CLI flags.
+  * Formats 63 parameterized openCypher statements with batch execution and progress reporting.
+  * Executes automated verification queries post-seeding to confirm node and edge counts.
 
-#### ?? `backend/test_app.py`
-* **Purpose**: Automated pytest test suite.
-* **Test Cases**: Root endpoint, health status, graph filtering, attack path discovery, blast radius computation, chokepoint patch simulation, and Cypher execution.
+#### `backend/test_app.py`
+* **Purpose**: Automated Pytest test suite.
+* **Coverage**: Tests root endpoint, health status, graph filtering, attack path discovery, blast radius computation, chokepoint patch simulation, and Cypher query execution. **All 7/7 tests pass in < 1 second.**
 
 ---
 
-### 4. Frontend React Application (`frontend/`)
+### 4. Frontend React Application (`frontend/src/`)
 
-#### ?? `frontend/src/App.tsx`
-* **Purpose**: Root application layout orchestrator.
+#### `frontend/src/App.tsx`
+* **Purpose**: Root application layout and state orchestrator.
 * **Details**: Manages active tabs, graph selection state, highlighted attack paths, modal visibility, and drawer side panels.
 
-#### ?? `frontend/src/components/GraphCanvas.tsx`
+#### `frontend/src/components/GraphCanvas.tsx`
 * **Purpose**: Interactive force-directed canvas powered by **Vis-Network**.
 * **Features**:
   * Physics simulation with Barnes-Hut gravitational solver.
@@ -299,62 +361,65 @@ Here is a complete architectural breakdown of every file in the codebase:
   * Visual glowing highlights for active attack paths and blast radius cascades.
   * Controls for zoom, pan, fit-to-viewport, and physics pause/resume.
 
-#### ?? `frontend/src/components/AttackPathFinder.tsx`
+#### `frontend/src/components/AttackPathFinder.tsx`
 * **Purpose**: Multi-hop attack vector visualizer.
 * **Features**: Step-by-step interactive timeline showing traversal mechanics, threat scores, and 1-click openCypher query copy.
 
-#### ?? `frontend/src/components/BlastRadiusTool.tsx`
+#### `frontend/src/components/BlastRadiusTool.tsx`
 * **Purpose**: Interactive blast radius simulator.
-* **Features**: Compromised node selector, hop depth slider (1?4 hops), Tier 1/2/3 breakdown, and Crown Jewel breach alerts.
+* **Features**: Compromised node selector, hop depth slider (1-4 hops), Tier 1/2/3 breakdown, and Crown Jewel breach alerts.
 
-#### ?? `frontend/src/components/ChokepointList.tsx`
+#### `frontend/src/components/ChokepointList.tsx`
 * **Purpose**: Remediation advisor and ROI calculator.
 * **Features**: Ranked list of critical bottlenecks with a **1-click "Simulate Patch"** button that dynamically updates the graph topology.
 
-#### ?? `frontend/src/components/CypherConsole.tsx`
+#### `frontend/src/components/CypherConsole.tsx`
 * **Purpose**: Live openCypher query console.
 * **Features**: Preset query selector with "Why Graph Wins over SQL" explanations, editable Cypher text editor, JSON parameter form, and tabular/raw JSON result viewer with execution time diagnostics.
 
-#### ?? `frontend/src/components/NodeDetailDrawer.tsx`
+#### `frontend/src/components/NodeDetailDrawer.tsx`
 * **Purpose**: Deep metadata inspector side panel.
 * **Features**: Displays full node properties, AWS ARNs, CVSS scores, risk gauge meters, and classification badges.
 
-#### ?? `frontend/src/components/ConnectionModal.tsx`
+#### `frontend/src/components/ConnectionModal.tsx`
 * **Purpose**: CognoDB Cloud configuration modal.
 * **Features**: 60-second setup instructions and live Bolt credential verification.
 
-#### ?? `frontend/src/components/Navbar.tsx`
+#### `frontend/src/components/Navbar.tsx`
 * **Purpose**: Navigation bar with real-time connection status pill, live pulse indicators, Crown Jewel counter badges, and tab switcher.
 
-#### ?? `frontend/src/services/api.ts`
+#### `frontend/src/services/api.ts`
 * **Purpose**: Type-safe HTTP API client connecting the React frontend to FastAPI endpoints.
 
-#### ?? `frontend/src/types/graph.ts`
+#### `frontend/src/types/graph.ts`
 * **Purpose**: TypeScript interfaces for graph entities, attack paths, blast radiuses, chokepoints, and query results.
 
 ---
 
-## ? openCypher Query Catalog & SQL Comparisons
+## openCypher Query Catalog & SQL Comparisons
 
-### Query 1: Multi-Hop Cloud Attack Path Discovery (2?5 Hops)
+### Query 1: Multi-Hop Cloud Attack Path Discovery (2 to 5 Hops)
 * **Description**: Traces unrestricted attack paths from threat actors to Crown Jewels.
-* **Why Graph Wins**: SQL requires complex `WITH RECURSIVE` CTEs with exponential join slowdowns. In openCypher, it is an index-free path pattern:
+* **openCypher Statement**:
 ```cypher
 MATCH path = (source:Asset {id: $source_id})-[*1..5]->(target:DataAsset {id: $target_id})
 RETURN path, length(path) AS hop_count
 ORDER BY hop_count ASC
 ```
+* **Why Graph Wins**: SQL requires 5+ table joins or recursive CTEs with cycle tracking arrays. In openCypher, index-free adjacency traverses the path in milliseconds.
 
 ### Query 2: IAM & Infrastructure Blast Radius Simulation
-* **Description**: Calculates all assets reachable within $k$ hops from a compromised origin.
-* **Why Graph Wins**: Graph databases traverse neighborhoods bidirectionally in milliseconds:
+* **Description**: Calculates all assets reachable within **k hops** from a compromised origin.
+* **openCypher Statement**:
 ```cypher
 MATCH (origin {id: $origin_id})-[r*1..3]-(affected)
 RETURN origin, r, affected
 ```
+* **Why Graph Wins**: Bidirectional neighborhood expansion is a native graph operation.
 
 ### Query 3: Critical Security Chokepoints (Remediation ROI)
-* **Description**: Identifies single points of failure where the maximum number of attack paths intersect:
+* **Description**: Identifies single points of failure where the maximum number of attack paths intersect.
+* **openCypher Statement**:
 ```cypher
 MATCH (entry:Compute {is_internet_facing: true})-[*1..4]->(choke)-[*1..3]->(target:DataAsset {is_crown_jewel: true})
 WHERE NOT choke:CrownJewel AND NOT choke:Attacker
@@ -367,14 +432,16 @@ LIMIT 5
 ```
 
 ### Query 4: Circular IAM Privilege Escalation Detection
-* **Description**: Detects dangerous reciprocal or transitive IAM Role assumption loops:
+* **Description**: Detects dangerous reciprocal or transitive IAM Role assumption loops.
+* **openCypher Statement**:
 ```cypher
 MATCH path = (r1:Identity)-[:ASSUMES*2..6]->(r1)
 RETURN path, length(path) AS cycle_length
 ```
 
 ### Query 5: Unused Wildcard Admin Permissions (Least Privilege Audit)
-* **Description**: Surfaces IAM roles with dormant admin permissions (>90 days inactive):
+* **Description**: Surfaces IAM roles with dormant admin permissions (>90 days inactive).
+* **openCypher Statement**:
 ```cypher
 MATCH (i:Identity)-[p:HAS_PERMISSION]->(d:DataAsset)
 WHERE p.last_used_days > 90 AND (p.action CONTAINS '*' OR p.is_admin_action = true)
@@ -383,7 +450,7 @@ RETURN i.name AS identity, p.action AS permission, d.name AS target_asset, p.las
 
 ---
 
-## ?? Quick Start Guide
+## Quick Start Guide
 
 ### 1. Clone the Repository
 ```bash
@@ -403,7 +470,7 @@ cd backend
 python -m venv venv
 
 # Windows:
-.env\Scriptsctivate
+.\venv\Scripts\activate
 # macOS/Linux:
 source venv/bin/activate
 
@@ -440,7 +507,7 @@ Open **[http://localhost:5173](http://localhost:5173)** in your browser!
 
 ---
 
-## ?? Automated Verification & Testing
+## Automated Verification & Testing
 
 Run the automated Pytest suite:
 ```bash
@@ -452,7 +519,7 @@ pytest test_app.py -v
 ```text
 ============================= test session starts =============================
 platform win32 -- Python 3.14.2, pytest-9.1.1, pluggy-1.6.0
-rootdir: C:\Users\Sachi\.geminintigravity\scratch\wexa-cognodb-graph-app
+rootdir: C:\Users\Sachi\.gemini\antigravity\scratch\wexa-cognodb-graph-app
 collected 7 items
 
 backend/test_app.py::test_root_endpoint PASSED                           [ 14%]
@@ -468,15 +535,15 @@ backend/test_app.py::test_cypher_execution PASSED                        [100%]
 
 ---
 
-## ?? Submission Information
+## Submission Information
 
-* **Candidate**: Sachindra Pandey
-* **Email**: `hr@wexa.ai`
-* **Subject**: `CognoDB Assignment 2 ? Sachindra Pandey`
-* **GitHub Repository**: [https://github.com/Sachindrapandeyyy/wexa-cognodb-graph-app](https://github.com/Sachindrapandeyyy/wexa-cognodb-graph-app)
-* **Technology Stack**: CognoDB Cloud (openCypher / Bolt 5.0?5.4), Python 3.14, FastAPI, Official Neo4j Driver, React 18, TypeScript, Tailwind CSS, Vis-Network.
+* **Candidate**: **Sachindra Pandey**
+* **Email**: **`hr@wexa.ai`**
+* **Subject**: **`CognoDB Assignment 2 - Sachindra Pandey`**
+* **GitHub Repository**: **[https://github.com/Sachindrapandeyyy/wexa-cognodb-graph-app](https://github.com/Sachindrapandeyyy/wexa-cognodb-graph-app)**
+* **Technology Stack**: **CognoDB Cloud** (openCypher / Bolt 5.0-5.4), **Python 3.14**, **FastAPI**, **Official Neo4j Driver**, **React 18**, **TypeScript**, **Tailwind CSS**, **Vis-Network**.
 
 ---
 <div align="center">
-Built with ?? for the Wexa Take-Home Assignment
+Built with passion for the Wexa Take-Home Assignment
 </div>
