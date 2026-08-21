@@ -1,166 +1,243 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Play, Clock, Code, HelpCircle } from 'lucide-react';
+import { 
+  Terminal, 
+  Play, 
+  Clock, 
+  Sparkles, 
+  Code2,
+  Table,
+  AlertCircle
+} from 'lucide-react';
 import { CypherCatalogItem, CypherQueryResult } from '../types/graph';
 import { fetchCypherCatalog, executeCypherQuery } from '../services/api';
 
 export const CypherConsole: React.FC = () => {
   const [catalog, setCatalog] = useState<CypherCatalogItem[]>([]);
-  const [selectedQueryId, setSelectedQueryId] = useState<string>('multi-hop-attack-paths');
-  const [queryText, setQueryText] = useState<string>('');
+  const [selectedPreset, setSelectedPreset] = useState<CypherCatalogItem | null>(null);
+  const [queryText, setQueryText] = useState<string>('MATCH (n) RETURN labels(n) AS label, count(n) AS count LIMIT 10');
   const [paramsText, setParamsText] = useState<string>('{}');
-  const [queryResult, setQueryResult] = useState<CypherQueryResult | null>(null);
+  const [result, setResult] = useState<CypherQueryResult | null>(null);
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'table' | 'json'>('table');
 
   useEffect(() => {
-    fetchCypherCatalog().then((items) => {
-      setCatalog(items);
-      if (items.length > 0) {
-        setQueryText(items[0].cypher);
-        setParamsText(JSON.stringify(items[0].parameters, null, 2));
-      }
-    });
+    fetchCypherCatalog()
+      .then((data: CypherCatalogItem[]) => {
+        setCatalog(data);
+        if (data.length > 0) {
+          setSelectedPreset(data[0]);
+          setQueryText(data[0].cypher);
+          setParamsText(JSON.stringify(data[0].parameters || {}, null, 2));
+        }
+      })
+      .catch((err: any) => console.error('Failed to fetch Cypher catalog:', err));
   }, []);
 
-  const handleSelectPreset = (item: CypherCatalogItem) => {
-    setSelectedQueryId(item.id);
-    setQueryText(item.cypher);
-    setParamsText(JSON.stringify(item.parameters, null, 2));
+  const handleSelectPreset = (preset: CypherCatalogItem) => {
+    setSelectedPreset(preset);
+    setQueryText(preset.cypher);
+    setParamsText(JSON.stringify(preset.parameters || {}, null, 2));
+    setError(null);
   };
 
   const handleExecute = async () => {
     setIsExecuting(true);
-    setErrorMessage(null);
+    setError(null);
+
+    let parsedParams = {};
     try {
-      let parsedParams = {};
       if (paramsText.trim()) {
         parsedParams = JSON.parse(paramsText);
       }
-      const res = await executeCypherQuery(queryText, parsedParams);
-      setQueryResult(res);
     } catch (e: any) {
-      setErrorMessage(e.message || 'Execution error');
+      setError(`Invalid JSON parameters: ${e.message}`);
+      setIsExecuting(false);
+      return;
+    }
+
+    try {
+      const res = await executeCypherQuery(queryText, parsedParams);
+      setResult(res);
+    } catch (err: any) {
+      setError(err?.message || 'Execution error');
     } finally {
       setIsExecuting(false);
     }
   };
 
-  const activePreset = catalog.find((c) => c.id === selectedQueryId);
+  const columns = result?.records && result.records.length > 0 ? Object.keys(result.records[0]) : [];
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full">
-      <div className="lg:col-span-4 flex flex-col bg-cyber-card border border-cyber-cardBorder rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-cyber-cardBorder bg-slate-900/50">
-          <h2 className="text-sm font-bold text-white flex items-center gap-2">
-            <Database className="h-4 w-4 text-cyan-400" />
-            openCypher Query Catalog
-          </h2>
-          <p className="text-xs text-slate-400">Pre-built multi-hop & graph-native queries</p>
+    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col gap-6 w-full">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Terminal className="w-4 h-4 text-indigo-600" />
+            <h3 className="font-extrabold text-base text-slate-900">openCypher Playground & Bolt Console</h3>
+          </div>
+          <p className="text-xs text-slate-500">
+            Execute parameterized graph queries against CognoDB Cloud over Bolt 5.0-5.4.
+          </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-          {catalog.map((item) => {
-            const isSelected = selectedQueryId === item.id;
+        {/* View Mode Toggle */}
+        <div className="flex items-center bg-slate-100 p-1 rounded-full border border-slate-200">
+          <button
+            onClick={() => setViewMode('table')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all ${
+              viewMode === 'table' ? 'bg-white text-slate-900 shadow-xs font-semibold' : 'text-slate-600'
+            }`}
+          >
+            <Table className="w-3.5 h-3.5" />
+            Table
+          </button>
+          <button
+            onClick={() => setViewMode('json')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all ${
+              viewMode === 'json' ? 'bg-white text-slate-900 shadow-xs font-semibold' : 'text-slate-600'
+            }`}
+          >
+            <Code2 className="w-3.5 h-3.5" />
+            JSON
+          </button>
+        </div>
+      </div>
+
+      {/* Preset Queries Horizontal Scroll */}
+      <div className="flex flex-col gap-2">
+        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Presets & Benchmarks</label>
+        <div className="flex flex-wrap gap-2">
+          {catalog.map((preset) => {
+            const isSelected = selectedPreset?.id === preset.id;
             return (
-              <div
-                key={item.id}
-                onClick={() => handleSelectPreset(item)}
-                className={`p-3 rounded-xl border transition-all cursor-pointer ${
+              <button
+                key={preset.id}
+                onClick={() => handleSelectPreset(preset)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all text-left ${
                   isSelected
-                    ? 'bg-cyan-950/30 border-cyan-500/50 shadow-neon-cyan'
-                    : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
+                    ? 'bg-slate-900 text-white shadow-xs font-semibold'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-slate-200">{item.title}</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-cyan-400">
-                    {item.category}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 line-clamp-2">{item.description}</p>
-              </div>
+                {preset.title}
+              </button>
             );
           })}
         </div>
       </div>
 
-      <div className="lg:col-span-8 flex flex-col gap-4">
-        <div className="bg-cyber-card border border-cyber-cardBorder rounded-2xl p-4 flex flex-col gap-3">
-          {activePreset && (
-            <div className="p-3 rounded-xl bg-slate-900/70 border border-slate-800 text-xs text-slate-300">
-              <div className="flex items-center gap-1.5 text-cyan-400 font-bold mb-1">
-                <HelpCircle className="h-3.5 w-3.5" />
-                <span>Why Graph Databases Win Here Over SQL</span>
-              </div>
-              <p className="text-slate-400 text-[11px]">{activePreset.why_graph_wins}</p>
-            </div>
-          )}
-
-          <div>
-            <label className="text-[11px] font-mono text-slate-400 block mb-1">OPENCYPHER STATEMENT</label>
-            <textarea
-              value={queryText}
-              onChange={(e) => setQueryText(e.target.value)}
-              rows={4}
-              className="w-full bg-[#05070c] border border-slate-800 text-cyan-300 font-mono text-xs rounded-xl p-3 focus:outline-none focus:border-cyan-500"
-            />
-          </div>
-
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex-1">
-              <label className="text-[10px] font-mono text-slate-500 block mb-1">QUERY PARAMETERS (JSON)</label>
-              <input
-                type="text"
-                value={paramsText}
-                onChange={(e) => setParamsText(e.target.value)}
-                className="w-full bg-[#05070c] border border-slate-800 text-slate-200 font-mono text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-cyan-500"
-              />
-            </div>
-
-            <button
-              onClick={handleExecute}
-              disabled={isExecuting}
-              className="self-end px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs font-mono flex items-center gap-2 shadow-neon-cyan transition-all"
-            >
-              <Play className="h-3.5 w-3.5 fill-current" />
-              <span>{isExecuting ? 'Executing...' : 'Run openCypher'}</span>
-            </button>
+      {/* Why Graph Wins Callout */}
+      {selectedPreset?.why_graph_wins && (
+        <div className="bg-purple-50/70 border border-purple-200/80 rounded-2xl p-4 flex items-start gap-3">
+          <Sparkles className="w-4 h-4 text-purple-600 mt-0.5 shrink-0" />
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-bold text-purple-950">Why Graph Wins over SQL:</span>
+            <p className="text-xs text-purple-900 leading-relaxed">
+              {selectedPreset.why_graph_wins}
+            </p>
           </div>
         </div>
+      )}
 
-        <div className="flex-1 bg-cyber-card border border-cyber-cardBorder rounded-2xl p-4 overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between pb-3 border-b border-cyber-cardBorder">
-            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono flex items-center gap-2">
-              <Code className="h-3.5 w-3.5 text-cyan-400" />
-              Query Results & Diagnostics
-            </h3>
-            {queryResult && (
-              <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1">
-                <Clock className="h-3 w-3 text-cyan-400" />
-                {queryResult.execution_time_ms} ms
-              </span>
-            )}
-          </div>
+      {/* Query & Parameter Inputs */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Cypher Query Editor */}
+        <div className="lg:col-span-2 flex flex-col gap-1.5">
+          <label className="text-xs font-bold text-slate-700">Cypher Statement:</label>
+          <textarea
+            value={queryText}
+            onChange={(e) => setQueryText(e.target.value)}
+            rows={5}
+            className="w-full bg-slate-900 text-slate-100 font-mono text-xs p-4 rounded-2xl border border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-700 leading-relaxed resize-none"
+            placeholder="MATCH (n) RETURN n LIMIT 25"
+          />
+        </div>
 
-          <div className="flex-1 overflow-y-auto pt-3">
-            {errorMessage ? (
-              <div className="p-3 rounded-xl bg-red-950/30 border border-red-500/40 text-red-400 text-xs font-mono">
-                {errorMessage}
-              </div>
-            ) : queryResult ? (
-              <div className="space-y-2">
-                <pre className="p-3 rounded-xl bg-[#05070c] border border-slate-800/80 text-cyan-300 font-mono text-xs overflow-x-auto">
-                  {JSON.stringify(queryResult.records, null, 2)}
-                </pre>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-32 text-slate-500 text-xs font-mono">
-                Click "Run openCypher" to execute the query against CognoDB.
-              </div>
-            )}
-          </div>
+        {/* Parameters Editor */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-bold text-slate-700">Query Parameters (JSON):</label>
+          <textarea
+            value={paramsText}
+            onChange={(e) => setParamsText(e.target.value)}
+            rows={5}
+            className="w-full bg-slate-50 text-slate-800 font-mono text-xs p-4 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300 leading-relaxed resize-none"
+            placeholder='{ "key": "value" }'
+          />
         </div>
       </div>
+
+      {/* Run Action Row */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={handleExecute}
+          disabled={isExecuting}
+          className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-full text-xs font-semibold shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+        >
+          <Play className="w-3.5 h-3.5 fill-white" />
+          <span>{isExecuting ? 'Executing over Bolt...' : 'Execute openCypher'}</span>
+        </button>
+
+        {result && (
+          <div className="flex items-center gap-3 text-xs text-slate-600">
+            <span className="flex items-center gap-1">
+              <Clock className="w-3.5 h-3.5 text-slate-400" />
+              <strong>{result.execution_time_ms} ms</strong>
+            </span>
+            <span>?</span>
+            <span>
+              <strong>{result.records?.length || 0}</strong> records returned
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-center gap-2.5 text-xs text-rose-800">
+          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Results View */}
+      {result && result.records && result.records.length > 0 && (
+        <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
+          <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Query Output</label>
+          
+          {viewMode === 'table' ? (
+            <div className="overflow-x-auto rounded-2xl border border-slate-200">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 text-slate-900 font-bold border-b border-slate-200">
+                  <tr>
+                    {columns.map((col: string) => (
+                      <th key={col} className="px-4 py-2.5 font-semibold">
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {result.records.map((row: any, rIdx: number) => (
+                    <tr key={rIdx} className="hover:bg-slate-50/60">
+                      {columns.map((col: string) => (
+                        <td key={col} className="px-4 py-2 font-mono text-[11px] text-slate-800">
+                          {typeof row[col] === 'object' ? JSON.stringify(row[col]) : String(row[col])}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <pre className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs font-mono overflow-x-auto text-slate-800 max-h-80">
+              {JSON.stringify(result.records, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
     </div>
   );
 };

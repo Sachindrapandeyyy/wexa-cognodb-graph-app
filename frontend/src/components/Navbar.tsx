@@ -1,127 +1,186 @@
 import React from 'react';
-import { Shield, Database, Zap, AlertTriangle, Radio, Settings, Compass, Flame } from 'lucide-react';
-import { ConnectionStatus, GraphStats } from '../types/graph';
+import { 
+  ShieldAlert, 
+  Database, 
+  GitFork, 
+  Flame, 
+  Terminal, 
+  Layers, 
+  ArrowRight
+} from 'lucide-react';
+import { ConnectionStatus } from '../types/graph';
 
 interface NavbarProps {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
-  status: ConnectionStatus | null;
-  stats?: GraphStats;
-  onOpenConnectionModal: () => void;
+  activeTab: 'topology' | 'attack-paths' | 'blast-radius' | 'chokepoints' | 'cypher';
+  setActiveTab: (tab: 'topology' | 'attack-paths' | 'blast-radius' | 'chokepoints' | 'cypher') => void;
+  connectionStatus: ConnectionStatus | null;
+  onOpenConnectModal: () => void;
+  nodeCount: number;
+  edgeCount: number;
+  crownJewelCount: number;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
-  status,
-  stats,
-  onOpenConnectionModal,
+  connectionStatus,
+  onOpenConnectModal,
+  nodeCount,
+  edgeCount,
+  crownJewelCount,
 }) => {
-  const tabs = [
-    { id: 'graph', label: 'Topology Map', icon: Compass },
-    { id: 'attack-paths', label: 'Attack Paths', icon: Zap },
-    { id: 'blast-radius', label: 'Blast Radius', icon: Flame },
-    { id: 'chokepoints', label: 'Chokepoint ROI', icon: Shield },
-    { id: 'cypher', label: 'Cypher Console', icon: Database },
-  ];
-
-  const isConnected = status && status.connected;
+  const isLiveCogno = connectionStatus?.connected && !connectionStatus?.is_mock_fallback;
 
   return (
-    <header className="border-b border-cyber-cardBorder bg-cyber-darker/90 backdrop-blur-md sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 p-0.5 shadow-neon-cyan flex items-center justify-center">
-              <div className="h-full w-full bg-cyber-darker rounded-[10px] flex items-center justify-center">
-                <Shield className="h-5 w-5 text-cyan-400" />
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-lg tracking-wider text-white">AEGIS<span className="text-cyan-400">GRAPH</span></span>
-                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">CognoDB</span>
-              </div>
-              <p className="text-[11px] text-slate-400 hidden sm:block">Cloud Security Attack Path & Blast Radius Engine</p>
-            </div>
+    <header className="sticky top-3 z-40 px-4 sm:px-6 w-full max-w-7xl mx-auto mb-4">
+      <div className="bg-white/90 backdrop-blur-md border border-slate-200/80 shadow-sm rounded-full px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
+        
+        {/* Brand Logo & Name */}
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="w-8 h-8 rounded-full bg-slate-950 text-white flex items-center justify-center font-bold shadow-sm">
+            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-white stroke-2">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 3v18M3 12h18" strokeDasharray="2 2" />
+              <circle cx="12" cy="12" r="4" className="fill-white" />
+            </svg>
           </div>
-
-          {/* Navigation Tabs */}
-          <nav className="hidden md:flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-                  }`}
-                >
-                  <Icon className={`h-4 w-4 ${isActive ? 'text-cyan-400' : 'text-slate-400'}`} />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Right Area: Status & Config */}
-          <div className="flex items-center gap-3">
-            {/* Quick Stat Badges */}
-            {stats && (
-              <div className="hidden lg:flex items-center gap-2 text-xs font-mono">
-                <div className="px-2 py-1 rounded bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span>{stats.crown_jewels} Crown Jewels</span>
-                </div>
-                <div className="px-2 py-1 rounded bg-amber-950/40 border border-amber-500/30 text-amber-300 flex items-center gap-1.5">
-                  <AlertTriangle className="h-3 w-3 text-amber-400" />
-                  <span>{stats.chokepoints} Chokepoints</span>
-                </div>
-              </div>
-            )}
-
-            {/* Connection Pill */}
-            <button
-              onClick={onOpenConnectionModal}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono font-medium border transition-all ${
-                isConnected
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
-                  : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20'
-              }`}
-            >
-              <Radio className={`h-3.5 w-3.5 ${isConnected ? 'text-emerald-400 animate-pulse' : 'text-cyan-400'}`} />
-              <span className="hidden sm:inline">
-                {isConnected ? 'CognoDB Cloud' : 'Demo Mode (Simulated)'}
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-slate-900 text-base tracking-tight">WEXA</span>
+              <span className="text-xs font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
+                AegisGraph
               </span>
-              <Settings className="h-3.5 w-3.5 text-slate-400 ml-1" />
-            </button>
+            </div>
           </div>
         </div>
 
-        {/* Mobile Tab Row */}
-        <div className="flex md:hidden overflow-x-auto py-2 gap-1 border-t border-slate-800">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs whitespace-nowrap ${
-                  isActive ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'text-slate-400'
-                }`}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {tab.label}
-              </button>
-            );
-          })}
+        {/* Center Tab Navigation Pills */}
+        <nav className="hidden md:flex items-center bg-slate-100/80 p-1 rounded-full border border-slate-200/60">
+          <button
+            onClick={() => setActiveTab('topology')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+              activeTab === 'topology'
+                ? 'bg-white text-slate-900 shadow-sm font-semibold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            Topology
+          </button>
+
+          <button
+            onClick={() => setActiveTab('attack-paths')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+              activeTab === 'attack-paths'
+                ? 'bg-white text-rose-600 shadow-sm font-semibold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            Attack Paths
+          </button>
+
+          <button
+            onClick={() => setActiveTab('blast-radius')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+              activeTab === 'blast-radius'
+                ? 'bg-white text-amber-600 shadow-sm font-semibold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+            }`}
+          >
+            <Flame className="w-3.5 h-3.5" />
+            Blast Radius
+          </button>
+
+          <button
+            onClick={() => setActiveTab('chokepoints')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+              activeTab === 'chokepoints'
+                ? 'bg-white text-purple-600 shadow-sm font-semibold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+            }`}
+          >
+            <GitFork className="w-3.5 h-3.5" />
+            Chokepoints
+          </button>
+
+          <button
+            onClick={() => setActiveTab('cypher')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
+              activeTab === 'cypher'
+                ? 'bg-white text-indigo-600 shadow-sm font-semibold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+            }`}
+          >
+            <Terminal className="w-3.5 h-3.5" />
+            Cypher Console
+          </button>
+        </nav>
+
+        {/* Right Actions: CognoDB Cloud Status & Modal Trigger */}
+        <div className="flex items-center gap-2.5">
+          {/* Quick Metrics */}
+          <div className="hidden lg:flex items-center gap-2 text-xs font-medium text-slate-500 border-r border-slate-200 pr-3">
+            <span><strong className="text-slate-900">{nodeCount}</strong> Nodes</span>
+            <span>-</span>
+            <span><strong className="text-slate-900">{edgeCount}</strong> Edges</span>
+            <span>-</span>
+            <span className="text-rose-600 font-semibold">{crownJewelCount} Crown Jewels</span>
+          </div>
+
+          {/* Connection Status Button (Wexa style black pill button) */}
+          <button
+            onClick={onOpenConnectModal}
+            className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-1.5 rounded-full text-xs font-medium shadow-sm transition-all"
+            title="Configure CognoDB Cloud connection"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                isLiveCogno ? 'bg-emerald-400' : 'bg-amber-400'
+              }`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                isLiveCogno ? 'bg-emerald-400' : 'bg-amber-400'
+              }`}></span>
+            </span>
+            <span>{isLiveCogno ? 'CognoDB Live' : 'CognoDB Demo'}</span>
+            <ArrowRight className="w-3 h-3 text-slate-400" />
+          </button>
         </div>
+
+      </div>
+
+      {/* Mobile Submenu Bar */}
+      <div className="flex md:hidden items-center justify-around bg-white border border-slate-200 mt-2 px-2 py-1 rounded-2xl shadow-sm text-xs">
+        <button 
+          onClick={() => setActiveTab('topology')}
+          className={`py-1 px-2.5 rounded-lg ${activeTab === 'topology' ? 'font-bold text-slate-900 bg-slate-100' : 'text-slate-600'}`}
+        >
+          Topology
+        </button>
+        <button 
+          onClick={() => setActiveTab('attack-paths')}
+          className={`py-1 px-2.5 rounded-lg ${activeTab === 'attack-paths' ? 'font-bold text-rose-600 bg-rose-50' : 'text-slate-600'}`}
+        >
+          Attack Paths
+        </button>
+        <button 
+          onClick={() => setActiveTab('blast-radius')}
+          className={`py-1 px-2.5 rounded-lg ${activeTab === 'blast-radius' ? 'font-bold text-amber-600 bg-amber-50' : 'text-slate-600'}`}
+        >
+          Blast Radius
+        </button>
+        <button 
+          onClick={() => setActiveTab('chokepoints')}
+          className={`py-1 px-2.5 rounded-lg ${activeTab === 'chokepoints' ? 'font-bold text-purple-600 bg-purple-50' : 'text-slate-600'}`}
+        >
+          Chokepoints
+        </button>
+        <button 
+          onClick={() => setActiveTab('cypher')}
+          className={`py-1 px-2.5 rounded-lg ${activeTab === 'cypher' ? 'font-bold text-indigo-600 bg-indigo-50' : 'text-slate-600'}`}
+        >
+          Cypher
+        </button>
       </div>
     </header>
   );

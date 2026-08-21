@@ -1,187 +1,221 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Network, Node, Edge } from 'vis-network';
+import { Network } from 'vis-network';
 import { DataSet } from 'vis-data';
-import { Maximize2, ZoomIn, ZoomOut, RefreshCw, Filter } from 'lucide-react';
-import { GraphData, GraphNode } from '../types/graph';
+import { 
+  ZoomIn, 
+  ZoomOut, 
+  Maximize2, 
+  Play, 
+  Pause, 
+  Filter, 
+  Sparkles
+} from 'lucide-react';
+import { GraphNode, GraphData } from '../types/graph';
 
 interface GraphCanvasProps {
   graphData: GraphData;
+  selectedNodeId: string | null;
   onSelectNode: (node: GraphNode | null) => void;
-  selectedNodeId?: string | null;
-  highlightedNodeIds?: string[];
-  highlightedEdgeIds?: string[];
-  className?: string;
+  highlightPathNodeIds?: string[];
+  highlightPathEdgeIds?: string[];
+  isLoading?: boolean;
 }
 
-const LABEL_COLORS: Record<string, { bg: string; border: string; highlight: string }> = {
-  Attacker: { bg: '#3f121d', border: '#ff2a55', highlight: '#ff5c7e' },
-  Compute: { bg: '#083344', border: '#06b6d4', highlight: '#22d3ee' },
-  Identity: { bg: '#451a03', border: '#f59e0b', highlight: '#fbbf24' },
-  Secret: { bg: '#3b0764', border: '#a855f7', highlight: '#c084fc' },
-  DataAsset: { bg: '#022c22', border: '#10b981', highlight: '#34d399' },
-  Vulnerability: { bg: '#431407', border: '#f97316', highlight: '#fb923c' },
-  NetworkZone: { bg: '#172554', border: '#3b82f6', highlight: '#60a5fa' },
-  Default: { bg: '#1e293b', border: '#64748b', highlight: '#94a3b8' },
+const getNodeColor = (node: GraphNode, isHighlighted: boolean, isSelected: boolean) => {
+  if (isSelected) {
+    return {
+      background: '#e0e7ff',
+      border: '#4338ca',
+      highlight: { background: '#c7d2fe', border: '#3730a3' }
+    };
+  }
+
+  if (isHighlighted) {
+    return {
+      background: '#fee2e2',
+      border: '#dc2626',
+      highlight: { background: '#fecaca', border: '#b91c1c' }
+    };
+  }
+
+  if (node.properties?.is_crown_jewel) {
+    return {
+      background: '#dcfce7',
+      border: '#16a34a',
+      highlight: { background: '#bbf7d0', border: '#15803d' }
+    };
+  }
+
+  if (node.properties?.is_chokepoint) {
+    return {
+      background: '#fef3c7',
+      border: '#d97706',
+      highlight: { background: '#fde68a', border: '#b45309' }
+    };
+  }
+
+  const primaryLabel = node.labels?.[0] || node.label || '';
+  switch (primaryLabel) {
+    case 'Attacker':
+    case 'ThreatActor':
+      return { background: '#fee2e2', border: '#ef4444', highlight: { background: '#fecaca', border: '#dc2626' } };
+    case 'Compute':
+    case 'Asset':
+      return { background: '#e0f2fe', border: '#0284c7', highlight: { background: '#bae6fd', border: '#0369a1' } };
+    case 'Identity':
+    case 'IAMRole':
+    case 'IAMUser':
+      return { background: '#fef3c7', border: '#f59e0b', highlight: { background: '#fde68a', border: '#d97706' } };
+    case 'Secret':
+    case 'KMSKey':
+    case 'SSHKey':
+      return { background: '#f3e8ff', border: '#a855f7', highlight: { background: '#e9d5ff', border: '#9333ea' } };
+    case 'DataAsset':
+    case 'CrownJewel':
+    case 'Database':
+    case 'S3Bucket':
+      return { background: '#dcfce7', border: '#10b981', highlight: { background: '#bbf7d0', border: '#059669' } };
+    case 'Vulnerability':
+    case 'CVE':
+      return { background: '#ffe4e6', border: '#f43f5e', highlight: { background: '#fecdd3', border: '#e11d48' } };
+    case 'NetworkZone':
+      return { background: '#f1f5f9', border: '#64748b', highlight: { background: '#e2e8f0', border: '#475569' } };
+    default:
+      return { background: '#f8fafc', border: '#94a3b8', highlight: { background: '#f1f5f9', border: '#64748b' } };
+  }
 };
 
 export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   graphData,
-  onSelectNode,
   selectedNodeId,
-  highlightedNodeIds = [],
-  highlightedEdgeIds = [],
-  className = '',
+  onSelectNode,
+  highlightPathNodeIds = [],
+  highlightPathEdgeIds = [],
+  isLoading = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const networkRef = useRef<Network | null>(null);
-  const [physicsEnabled, setPhysicsEnabled] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<string>('ALL');
+  const nodesDataSetRef = useRef<DataSet<any> | null>(null);
+  const edgesDataSetRef = useRef<DataSet<any> | null>(null);
+
+  const [physicsEnabled, setPhysicsEnabled] = useState<boolean>(true);
+  const [filterType, setFilterType] = useState<string>('all');
+  const [showCrownJewelsOnly, setShowCrownJewelsOnly] = useState<boolean>(false);
 
   useEffect(() => {
-    if (!containerRef.current || !graphData.nodes) return;
+    if (!containerRef.current) return;
 
-    const hasHighlight = highlightedNodeIds.length > 0;
-
-    // Filter nodes if filter is active
-    const displayNodes = graphData.nodes.filter((n) => {
-      if (activeFilter === 'ALL') return true;
-      if (activeFilter === 'CROWN') return n.properties.is_crown_jewel;
-      if (activeFilter === 'CHOKE') return n.properties.is_chokepoint;
-      return n.labels.includes(activeFilter);
+    const filteredNodes = (graphData.nodes || []).filter(node => {
+      if (showCrownJewelsOnly && !node.properties?.is_crown_jewel) return false;
+      if (filterType !== 'all' && !(node.labels?.includes(filterType) || node.label === filterType)) return false;
+      return true;
     });
 
-    const displayNodeIds = new Set(displayNodes.map((n) => n.id));
+    const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
+    const filteredEdges = (graphData.edges || []).filter(e => 
+      filteredNodeIds.has(e.source) && filteredNodeIds.has(e.target)
+    );
 
-    // Vis Nodes
-    const visNodes: Node[] = displayNodes.map((n) => {
-      const primaryLabel = n.labels[0] || 'Default';
-      const colorScheme = LABEL_COLORS[primaryLabel] || LABEL_COLORS.Default;
-      const isHighlighted = highlightedNodeIds.includes(n.id);
-      const isSelected = selectedNodeId === n.id;
-      const isCrownJewel = n.properties.is_crown_jewel;
-      const isChokepoint = n.properties.is_chokepoint;
-
-      let opacity = 1.0;
-      if (hasHighlight && !isHighlighted) {
-        opacity = 0.22;
-      }
-
-      const borderWidth = isSelected ? 3 : isCrownJewel || isChokepoint ? 2.5 : 1.5;
-      const shape = isCrownJewel ? 'hexagon' : primaryLabel === 'Attacker' ? 'diamond' : 'box';
+    const visNodes = filteredNodes.map(node => {
+      const isHighlighted = highlightPathNodeIds.includes(node.id);
+      const isSelected = selectedNodeId === node.id;
+      const colors = getNodeColor(node, isHighlighted, isSelected);
 
       return {
-        id: n.id,
-        label: `${n.properties.name || n.id}\n[${primaryLabel}]`,
-        shape: shape,
-        margin: { top: 8, right: 8, bottom: 8, left: 8 },
+        id: node.id,
+        label: node.properties?.name || node.label || node.id,
+        shape: 'box',
+        borderWidth: isSelected ? 3 : isHighlighted ? 2.5 : 1.5,
+        borderRadius: 8,
+        color: colors,
         font: {
-          color: hasHighlight && !isHighlighted ? '#64748b' : '#f8fafc',
+          color: '#0f172a',
           size: 11,
-          face: 'Plus Jakarta Sans, sans-serif',
+          face: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto',
+          bold: isSelected || isHighlighted ? '700' : '500',
         },
-        color: {
-          background: isSelected ? colorScheme.highlight : colorScheme.bg,
-          border: isSelected ? '#ffffff' : colorScheme.border,
-          highlight: {
-            background: colorScheme.highlight,
-            border: '#ffffff',
-          },
-        },
-        borderWidth: borderWidth,
-        shadow: isHighlighted || isCrownJewel ? { enabled: true, color: colorScheme.border, size: 10 } : false,
-        opacity: opacity,
+        margin: { top: 7, right: 10, bottom: 7, left: 10 },
+        shadow: isSelected || isHighlighted ? {
+          enabled: true,
+          color: isSelected ? 'rgba(99, 102, 241, 0.25)' : 'rgba(239, 68, 68, 0.25)',
+          size: 10,
+          x: 0,
+          y: 4
+        } : {
+          enabled: true,
+          color: 'rgba(0, 0, 0, 0.04)',
+          size: 4,
+          x: 0,
+          y: 2
+        }
       };
     });
 
-    // Vis Edges
-    const visEdges: Edge[] = graphData.edges
-      .filter((e) => displayNodeIds.has(e.source) && displayNodeIds.has(e.target))
-      .map((e) => {
-        const isHighlighted =
-          highlightedEdgeIds.includes(e.id) ||
-          (highlightedNodeIds.includes(e.source) && highlightedNodeIds.includes(e.target));
+    const visEdges = filteredEdges.map(edge => {
+      const isHighlighted = highlightPathEdgeIds.includes(edge.id) ||
+        (highlightPathNodeIds.includes(edge.source) && highlightPathNodeIds.includes(edge.target));
 
-        let color = '#334155';
-        let width = 1.2;
-        let opacity = 0.85;
+      return {
+        id: edge.id,
+        from: edge.source,
+        to: edge.target,
+        label: edge.type,
+        arrows: { to: { enabled: true, scaleFactor: 0.7 } },
+        color: {
+          color: isHighlighted ? '#dc2626' : '#cbd5e1',
+          highlight: '#4f46e5',
+          hover: '#94a3b8'
+        },
+        width: isHighlighted ? 3 : 1.2,
+        font: {
+          color: isHighlighted ? '#991b1b' : '#64748b',
+          size: 9,
+          align: 'horizontal',
+          background: 'rgba(255, 255, 255, 0.9)',
+          strokeWidth: 0
+        },
+        smooth: { enabled: true, type: 'curvedCW', roundness: 0.12 }
+      };
+    });
 
-        if (hasHighlight) {
-          if (isHighlighted) {
-            color = '#ff2a55';
-            width = 3.0;
-            opacity = 1.0;
-          } else {
-            opacity = 0.15;
-          }
-        }
-
-        return {
-          id: e.id,
-          from: e.source,
-          to: e.target,
-          label: e.type,
-          font: {
-            color: isHighlighted ? '#ff5c7e' : '#94a3b8',
-            size: 9,
-            align: 'middle',
-            background: '#0a0d14',
-            strokeWidth: 0,
-          },
-          arrows: {
-            to: { enabled: true, scaleFactor: 0.8 },
-          },
-          color: {
-            color: color,
-            highlight: '#00f0ff',
-            hover: '#00f0ff',
-            opacity: opacity,
-          },
-          width: width,
-          smooth: {
-            enabled: true,
-            type: 'curvedCW',
-            roundness: 0.15,
-          },
-        };
-      });
-
-    const data = {
-      nodes: new DataSet<Node>(visNodes),
-      edges: new DataSet<Edge>(visEdges),
-    };
+    const nodesDataSet = new DataSet(visNodes);
+    const edgesDataSet = new DataSet(visEdges);
+    nodesDataSetRef.current = nodesDataSet;
+    edgesDataSetRef.current = edgesDataSet;
 
     const options = {
       physics: {
         enabled: physicsEnabled,
         solver: 'barnesHut',
         barnesHut: {
-          gravitationalConstant: -3500,
-          centralGravity: 0.25,
+          gravitationalConstant: -2200,
+          centralGravity: 0.35,
           springLength: 120,
           springConstant: 0.04,
           damping: 0.09,
-          avoidOverlap: 0.3,
+          avoidOverlap: 0.4
         },
         stabilization: {
           iterations: 150,
-          updateInterval: 25,
-        },
+          updateInterval: 25
+        }
       },
       interaction: {
         hover: true,
-        tooltipDelay: 100,
+        tooltipDelay: 150,
         zoomView: true,
         dragView: true,
-      },
+        selectConnectedEdges: true
+      }
     };
 
-    const network = new Network(containerRef.current, data, options);
+    const network = new Network(containerRef.current, { nodes: nodesDataSet, edges: edgesDataSet }, options);
     networkRef.current = network;
 
     network.on('click', (params) => {
-      if (params.nodes && params.nodes.length > 0) {
-        const clickedId = String(params.nodes[0]);
-        const fullNode = graphData.nodes.find((n) => n.id === clickedId) || null;
+      if (params.nodes.length > 0) {
+        const clickedId = params.nodes[0];
+        const fullNode = graphData.nodes?.find(n => n.id === clickedId) || null;
         onSelectNode(fullNode);
       } else {
         onSelectNode(null);
@@ -191,93 +225,164 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     return () => {
       network.destroy();
     };
-  }, [graphData, highlightedNodeIds, highlightedEdgeIds, selectedNodeId, physicsEnabled, activeFilter]);
+  }, [graphData, filterType, showCrownJewelsOnly]);
 
-  const handleFit = () => networkRef.current?.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+  useEffect(() => {
+    if (!networkRef.current || !nodesDataSetRef.current) return;
+
+    const nodes = nodesDataSetRef.current;
+    (graphData.nodes || []).forEach(node => {
+      const isHighlighted = highlightPathNodeIds.includes(node.id);
+      const isSelected = selectedNodeId === node.id;
+      const colors = getNodeColor(node, isHighlighted, isSelected);
+
+      try {
+        nodes.update({
+          id: node.id,
+          borderWidth: isSelected ? 3 : isHighlighted ? 2.5 : 1.5,
+          color: colors,
+          font: {
+            color: '#0f172a',
+            size: 11,
+            bold: isSelected || isHighlighted ? '700' : '500',
+          }
+        });
+      } catch (e) {
+        // Ignored if node is filtered
+      }
+    });
+  }, [selectedNodeId, highlightPathNodeIds, highlightPathEdgeIds]);
+
   const handleZoomIn = () => {
     if (!networkRef.current) return;
     const scale = networkRef.current.getScale();
     networkRef.current.moveTo({ scale: scale * 1.3, animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
   };
+
   const handleZoomOut = () => {
     if (!networkRef.current) return;
     const scale = networkRef.current.getScale();
     networkRef.current.moveTo({ scale: scale * 0.7, animation: { duration: 300, easingFunction: 'easeInOutQuad' } });
   };
 
-  const filterOptions = [
-    { id: 'ALL', label: 'All Assets' },
-    { id: 'CROWN', label: '?? Crown Jewels' },
-    { id: 'CHOKE', label: '? Chokepoints' },
-    { id: 'Compute', label: 'Compute' },
-    { id: 'Identity', label: 'IAM Roles' },
-    { id: 'Secret', label: 'Secrets/KMS' },
-    { id: 'Vulnerability', label: 'CVEs' },
-  ];
+  const handleFit = () => {
+    if (!networkRef.current) return;
+    networkRef.current.fit({ animation: { duration: 400, easingFunction: 'easeInOutQuad' } });
+  };
+
+  const togglePhysics = () => {
+    if (!networkRef.current) return;
+    const nextState = !physicsEnabled;
+    setPhysicsEnabled(nextState);
+    networkRef.current.setOptions({ physics: { enabled: nextState } });
+  };
 
   return (
-    <div className={`relative w-full h-full bg-[#07090e] overflow-hidden rounded-2xl border border-slate-800 ${className}`}>
-      <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
-
-      <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 pointer-events-none">
-        <div className="flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md p-1 rounded-xl border border-slate-800 pointer-events-auto overflow-x-auto shadow-lg">
-          <Filter className="h-3.5 w-3.5 text-slate-400 ml-2 mr-1" />
-          {filterOptions.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setActiveFilter(f.id)}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-colors ${
-                activeFilter === f.id
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+    <div className="relative w-full h-[600px] lg:h-[680px] bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden wexa-grid-bg">
+      
+      {/* Top Filter Bar */}
+      <div className="absolute top-4 left-4 z-10 flex flex-wrap items-center gap-2 bg-white/95 backdrop-blur-md p-1.5 rounded-full border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-slate-700">
+          <Filter className="w-3.5 h-3.5 text-slate-400" />
+          <span>Filter:</span>
         </div>
 
-        <div className="hidden lg:flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-800 pointer-events-auto text-[11px] font-mono shadow-lg">
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#ff2a55]"></span> Threat</span>
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#06b6d4]"></span> Compute</span>
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#f59e0b]"></span> IAM</span>
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#a855f7]"></span> Secret</span>
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#10b981]"></span> Data</span>
-        </div>
-      </div>
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+          className="bg-slate-50 text-slate-800 text-xs font-medium rounded-full px-3 py-1 border border-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
+        >
+          <option value="all">All Labels ({graphData.nodes?.length || 0})</option>
+          <option value="Attacker">Threat Actors</option>
+          <option value="Compute">Compute / Workloads</option>
+          <option value="Identity">IAM Identities</option>
+          <option value="Secret">Secrets & KMS</option>
+          <option value="DataAsset">Data Assets</option>
+          <option value="Vulnerability">CVE Vulnerabilities</option>
+          <option value="NetworkZone">Network Zones</option>
+        </select>
 
-      <div className="absolute bottom-4 right-4 flex flex-col gap-1.5 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-800 shadow-xl">
         <button
-          onClick={handleZoomIn}
-          title="Zoom In"
-          className="p-2 text-slate-300 hover:text-cyan-400 hover:bg-slate-800 rounded-lg transition-colors"
-        >
-          <ZoomIn className="h-4 w-4" />
-        </button>
-        <button
-          onClick={handleZoomOut}
-          title="Zoom Out"
-          className="p-2 text-slate-300 hover:text-cyan-400 hover:bg-slate-800 rounded-lg transition-colors"
-        >
-          <ZoomOut className="h-4 w-4" />
-        </button>
-        <button
-          onClick={handleFit}
-          title="Fit Graph to Viewport"
-          className="p-2 text-slate-300 hover:text-cyan-400 hover:bg-slate-800 rounded-lg transition-colors"
-        >
-          <Maximize2 className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => setPhysicsEnabled(!physicsEnabled)}
-          title={physicsEnabled ? 'Pause Physics Simulation' : 'Resume Physics Simulation'}
-          className={`p-2 rounded-lg transition-colors ${
-            physicsEnabled ? 'text-cyan-400 bg-cyan-500/10' : 'text-slate-400 hover:bg-slate-800'
+          onClick={() => setShowCrownJewelsOnly(!showCrownJewelsOnly)}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-all ${
+            showCrownJewelsOnly 
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-300 font-semibold' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <RefreshCw className={`h-4 w-4 ${physicsEnabled ? 'animate-spin' : ''}`} />
+          <Sparkles className="w-3 h-3 text-emerald-500" />
+          Crown Jewels Only
         </button>
       </div>
+
+      {/* Floating Canvas Controls */}
+      <div className="absolute bottom-4 right-4 z-10 flex items-center gap-1.5 bg-white/95 backdrop-blur-md p-1.5 rounded-full border border-slate-200 shadow-sm">
+        <button
+          onClick={handleZoomIn}
+          className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-all"
+          title="Zoom In"
+        >
+          <ZoomIn className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={handleZoomOut}
+          className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-all"
+          title="Zoom Out"
+        >
+          <ZoomOut className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={handleFit}
+          className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-all"
+          title="Fit to Screen"
+        >
+          <Maximize2 className="w-4 h-4" />
+        </button>
+
+        <div className="w-[1px] h-4 bg-slate-200 mx-1"></div>
+
+        <button
+          onClick={togglePhysics}
+          className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+            physicsEnabled
+              ? 'bg-slate-100 text-slate-800'
+              : 'bg-amber-50 text-amber-700 border border-amber-200'
+          }`}
+          title="Toggle Force Physics"
+        >
+          {physicsEnabled ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+          <span>{physicsEnabled ? 'Pause' : 'Play'}</span>
+        </button>
+      </div>
+
+      {/* Legend */}
+      <div className="absolute bottom-4 left-4 z-10 hidden sm:flex items-center gap-3 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-full border border-slate-200 shadow-sm text-[11px] text-slate-600">
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-400 border border-rose-500"></span>
+          <span>Threat</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-sky-400 border border-sky-500"></span>
+          <span>Compute</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 border border-amber-500"></span>
+          <span>IAM</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-purple-400 border border-purple-500"></span>
+          <span>Secrets</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 border border-emerald-500"></span>
+          <span>Crown Jewels</span>
+        </div>
+      </div>
+
+      {/* Main Canvas */}
+      <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
     </div>
   );
 };

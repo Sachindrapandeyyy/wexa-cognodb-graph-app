@@ -1,115 +1,141 @@
 import React, { useState } from 'react';
-import { Shield, CheckCircle2, RotateCcw, TrendingDown } from 'lucide-react';
+import { 
+  GitFork, 
+  RotateCcw, 
+  CheckCircle2, 
+  Zap 
+} from 'lucide-react';
 import { ChokepointItem, GraphData } from '../types/graph';
 import { simulatePatchChokepoint } from '../services/api';
 
 interface ChokepointListProps {
   chokepoints: ChokepointItem[];
-  onPatchSimulated: (nodeId: string, updatedGraph: GraphData | null) => void;
-  patchedNodeId: string | null;
+  onPatchSimulated: (nodeId: string, updatedGraph?: GraphData) => void;
+  onResetGraph: () => void;
 }
 
 export const ChokepointList: React.FC<ChokepointListProps> = ({
   chokepoints,
   onPatchSimulated,
-  patchedNodeId,
+  onResetGraph,
 }) => {
-  const [loadingNodeId, setLoadingNodeId] = useState<string | null>(null);
+  const [patchedNodeId, setPatchedNodeId] = useState<string | null>(null);
+  const [simulationMsg, setSimulationMsg] = useState<string | null>(null);
+  const [isSimulating, setIsSimulating] = useState<boolean>(false);
 
-  const handleTogglePatch = async (item: ChokepointItem) => {
-    if (patchedNodeId === item.node_id) {
-      onPatchSimulated('', null);
-      return;
-    }
+  const handleSimulatePatch = (nodeId: string) => {
+    setIsSimulating(true);
+    simulatePatchChokepoint(nodeId)
+      .then((data) => {
+        setPatchedNodeId(nodeId);
+        setSimulationMsg(`Successfully severed chokepoint ${nodeId}. Attack paths converging through this node are neutralized.`);
+        onPatchSimulated(nodeId, data.graph);
+      })
+      .catch((err) => console.error('Simulation failed:', err))
+      .finally(() => setIsSimulating(false));
+  };
 
-    setLoadingNodeId(item.node_id);
-    try {
-      const res = await simulatePatchChokepoint(item.node_id);
-      onPatchSimulated(item.node_id, res.graph);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingNodeId(null);
-    }
+  const handleReset = () => {
+    setPatchedNodeId(null);
+    setSimulationMsg(null);
+    onResetGraph();
   };
 
   return (
-    <div className="flex flex-col h-full bg-cyber-card border border-cyber-cardBorder rounded-2xl overflow-hidden">
-      <div className="p-4 border-b border-cyber-cardBorder bg-slate-900/50">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-            <Shield className="h-4 w-4" />
+    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col gap-6 w-full">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <GitFork className="w-4 h-4 text-purple-600" />
+            <h3 className="font-extrabold text-base text-slate-900">Critical Chokepoint Remediation Advisor</h3>
           </div>
-          <div>
-            <h2 className="text-sm font-bold text-white">Chokepoint Remediation Advisor</h2>
-            <p className="text-xs text-slate-400">Single points of failure where multiple attack chains converge</p>
-          </div>
+          <p className="text-xs text-slate-500">
+            Identify single points of failure where multiple multi-hop attack vectors converge.
+          </p>
         </div>
+
+        {patchedNodeId && (
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-slate-700 transition-all shadow-xs"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset Simulated Patches</span>
+          </button>
+        )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {chokepoints.map((item) => {
-          const isPatched = patchedNodeId === item.node_id;
-          const isLoading = loadingNodeId === item.node_id;
+      {/* Simulation Feedback Alert */}
+      {simulationMsg && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <div>
+              <div className="text-xs font-bold text-emerald-900">
+                Remediation Simulation Active: Patched {patchedNodeId}
+              </div>
+              <div className="text-xs text-emerald-700 mt-0.5">
+                {simulationMsg}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
+      {/* Chokepoint Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {chokepoints.map((item, index) => {
+          const isPatched = patchedNodeId === item.node_id;
           return (
             <div
               key={item.node_id}
-              className={`p-3.5 rounded-xl border transition-all ${
+              className={`p-5 rounded-2xl border transition-all flex flex-col justify-between ${
                 isPatched
-                  ? 'bg-emerald-950/20 border-emerald-500/50 shadow-neon-green'
-                  : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
+                  ? 'bg-emerald-50/40 border-emerald-300 shadow-sm'
+                  : 'bg-slate-50/60 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
               }`}
             >
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-white">{item.name}</span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                      {item.type}
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-3">
-                    <span>
-                      Intercepts: <strong className="text-amber-400 font-mono">{item.paths_intercepted} paths</strong>
-                    </span>
-                    <span>
-                      Threatened: <strong className="text-red-400 font-mono">{item.threatened_targets} Crown Jewels</strong>
-                    </span>
-                  </div>
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="text-xs font-bold text-slate-900 truncate">
+                    #{index + 1} {item.name}
+                  </span>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 shrink-0">
+                    {item.estimated_risk_reduction_pct}% ROI
+                  </span>
                 </div>
 
-                <div className="flex items-center gap-1 text-emerald-400 text-xs font-mono font-bold bg-emerald-950/50 px-2 py-1 rounded border border-emerald-800/60 shrink-0">
-                  <TrendingDown className="h-3.5 w-3.5" />
-                  <span>-{item.estimated_risk_reduction_pct}% Risk</span>
+                <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
+                  <span>Type:</span>
+                  <span className="font-semibold text-slate-700">{item.labels?.join(', ') || item.type}</span>
+                  <span className="text-slate-300">?</span>
+                  <span className="text-rose-600 font-semibold">{item.paths_intercepted} paths blocked</span>
                 </div>
-              </div>
 
-              <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-800/80 text-[11px] text-slate-300 mb-3">
-                <span className="text-cyan-400 font-semibold">Recommended Fix: </span>
-                {item.remediation_recommendation}
+                <p className="text-xs text-slate-600 leading-relaxed mb-4">
+                  {item.remediation_recommendation}
+                </p>
               </div>
 
               <button
-                onClick={() => handleTogglePatch(item)}
-                disabled={isLoading}
-                className={`w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold font-mono transition-all ${
+                onClick={() => handleSimulatePatch(item.node_id)}
+                disabled={isPatched || isSimulating}
+                className={`w-full flex items-center justify-center gap-2 py-2 px-4 rounded-full text-xs font-semibold transition-all shadow-xs ${
                   isPatched
-                    ? 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-600'
-                    : 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold shadow-neon-cyan'
+                    ? 'bg-emerald-100 text-emerald-800 cursor-default'
+                    : 'bg-slate-900 hover:bg-slate-800 text-white'
                 }`}
               >
-                {isLoading ? (
-                  <span>Recalculating attack paths...</span>
-                ) : isPatched ? (
+                {isPatched ? (
                   <>
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    <span>Reset Simulation (Restore Asset)</span>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Path Severed & Remediated</span>
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    <span>Simulate Remediation (Sever Paths)</span>
+                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Simulate Patch (Cut Edge)</span>
                   </>
                 )}
               </button>

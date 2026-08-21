@@ -1,171 +1,191 @@
 import React, { useState, useEffect } from 'react';
-import { Flame, AlertTriangle, Database } from 'lucide-react';
-import { BlastRadiusResult, GraphNode } from '../types/graph';
+import { 
+  Flame, 
+  Layers, 
+  ShieldAlert, 
+  Sparkles
+} from 'lucide-react';
+import { GraphNode, BlastRadiusResult } from '../types/graph';
 import { fetchBlastRadius } from '../services/api';
 
 interface BlastRadiusToolProps {
   nodes: GraphNode[];
-  onHighlightNodes: (nodeIds: string[], edgeIds: string[]) => void;
+  onHighlightBlastRadius: (nodeIds: string[]) => void;
 }
 
-export const BlastRadiusTool: React.FC<BlastRadiusToolProps> = ({ nodes, onHighlightNodes }) => {
-  const [selectedOriginId, setSelectedOriginId] = useState<string>('iam-role-cross-account-db');
-  const [maxHops, setMaxHops] = useState<number>(3);
-  const [blastResult, setBlastResult] = useState<BlastRadiusResult | null>(null);
+export const BlastRadiusTool: React.FC<BlastRadiusToolProps> = ({
+  nodes,
+  onHighlightBlastRadius,
+}) => {
+  const [selectedOriginId, setSelectedOriginId] = useState<string>('node-iam-role-crossaccount');
+  const [maxDepth, setMaxDepth] = useState<number>(2);
+  const [result, setResult] = useState<BlastRadiusResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
     if (!selectedOriginId) return;
-    setIsLoading(true);
-    fetchBlastRadius(selectedOriginId, maxHops)
-      .then((res) => {
-        setBlastResult(res);
-        const allNodeIds = res.graph.nodes.map((n) => n.id);
-        const allEdgeIds = res.graph.edges.map((e) => e.id);
-        onHighlightNodes(allNodeIds, allEdgeIds);
-      })
-      .catch((err) => console.error(err))
-      .finally(() => setIsLoading(false));
-  }, [selectedOriginId, maxHops]);
 
-  const candidateNodes = nodes.filter(
-    (n) => n.labels.includes('Identity') || n.labels.includes('Compute') || n.labels.includes('Secret')
-  );
+    setIsLoading(true);
+    fetchBlastRadius(selectedOriginId, maxDepth)
+      .then((data) => {
+        setResult(data);
+        const allImpacted = [
+          data.origin_node_id,
+          ...data.compromise_tier_1.map(n => n.id),
+          ...data.compromise_tier_2.map(n => n.id),
+          ...data.compromise_tier_3.map(n => n.id),
+        ];
+        onHighlightBlastRadius(allImpacted);
+      })
+      .catch((err) => console.error('Failed to compute blast radius:', err))
+      .finally(() => setIsLoading(false));
+  }, [selectedOriginId, maxDepth]);
 
   return (
-    <div className="flex flex-col h-full bg-cyber-card border border-cyber-cardBorder rounded-2xl overflow-hidden">
-      <div className="p-4 border-b border-cyber-cardBorder bg-slate-900/50">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            <Flame className="h-4 w-4" />
+    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col gap-6 w-full">
+      {/* Header & Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Flame className="w-4 h-4 text-amber-500" />
+            <h3 className="font-extrabold text-base text-slate-900">IAM & Infrastructure Blast Radius Simulator</h3>
           </div>
-          <div>
-            <h2 className="text-sm font-bold text-white">IAM & Asset Blast Radius Simulator</h2>
-            <p className="text-xs text-slate-400">Simulate transitive compromise cascade across infrastructure</p>
-          </div>
+          <p className="text-xs text-slate-500">
+            Simulate transitive compromise cascade across bidirectional entity trust graphs.
+          </p>
         </div>
 
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <div>
-            <label className="text-[11px] font-mono text-slate-400 block mb-1">COMPROMISED ORIGIN</label>
+        {/* Origin Selector */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-semibold text-slate-700">Compromised Asset:</label>
             <select
               value={selectedOriginId}
               onChange={(e) => setSelectedOriginId(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-cyan-500"
+              className="bg-slate-50 border border-slate-200 text-slate-800 text-xs font-medium rounded-full px-3.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-slate-400 cursor-pointer"
             >
-              {candidateNodes.map((n) => (
-                <option key={n.id} value={n.id}>
-                  {n.properties.name || n.id} ({n.labels[0]})
+              {nodes.map((node) => (
+                <option key={node.id} value={node.id}>
+                  {node.properties?.name || node.label || node.id} ({node.labels?.[0] || node.label})
                 </option>
               ))}
             </select>
           </div>
 
-          <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="text-[11px] font-mono text-slate-400">CASCADE DEPTH</label>
-              <span className="text-xs font-mono text-cyan-400 font-bold">{maxHops} Hops</span>
-            </div>
+          {/* Depth Slider */}
+          <div className="flex items-center gap-2 bg-slate-50 px-3.5 py-1.5 rounded-full border border-slate-200">
+            <label className="text-xs font-semibold text-slate-700">Depth:</label>
             <input
               type="range"
               min="1"
-              max="4"
-              value={maxHops}
-              onChange={(e) => setMaxHops(Number(e.target.value))}
-              className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+              max="3"
+              value={maxDepth}
+              onChange={(e) => setMaxDepth(parseInt(e.target.value))}
+              className="w-20 accent-slate-900 cursor-pointer"
             />
+            <span className="text-xs font-bold text-slate-900 min-w-[28px]">{maxDepth} hops</span>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-48 text-slate-400 text-xs">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-400 mr-2"></div>
-            Simulating compromise blast wave...
+      {/* Metrics Summary Row */}
+      {result && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+            <span className="text-xs text-slate-500 font-medium">Total Impacted</span>
+            <div className="text-2xl font-extrabold text-slate-900 mt-1">{result.total_impacted_assets} Assets</div>
           </div>
-        ) : blastResult ? (
-          <>
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
-                <span className="text-[10px] font-mono text-slate-400">TOTAL IMPACTED ASSETS</span>
-                <div className="text-xl font-black text-amber-400 mt-1">
-                  {blastResult.total_impacted_assets} <span className="text-xs font-normal text-slate-400">nodes</span>
-                </div>
-              </div>
 
-              <div className="p-3 rounded-xl bg-red-950/30 border border-red-500/30">
-                <span className="text-[10px] font-mono text-red-300">THREATENED CROWN JEWELS</span>
-                <div className="text-xl font-black text-red-400 mt-1">
-                  {blastResult.threatened_crown_jewels.length} <span className="text-xs font-normal text-slate-400">critical</span>
-                </div>
-              </div>
+          <div className="bg-rose-50/70 p-4 rounded-2xl border border-rose-200">
+            <span className="text-xs text-rose-600 font-semibold">Crown Jewels at Risk</span>
+            <div className="text-2xl font-extrabold text-rose-700 mt-1">
+              {result.threatened_crown_jewels?.length || 0} Databases
             </div>
+          </div>
 
-            {blastResult.threatened_crown_jewels.length > 0 && (
-              <div className="p-3 rounded-xl bg-red-950/40 border border-red-500/40">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-red-400 mb-2">
-                  <AlertTriangle className="h-3.5 w-3.5" />
-                  <span>CRITICAL DATA COMPROMISED</span>
-                </div>
-                <div className="space-y-1.5">
-                  {blastResult.threatened_crown_jewels.map((cj) => (
-                    <div key={cj.id} className="text-[11px] font-medium text-slate-200 flex items-center gap-2">
-                      <Database className="h-3.5 w-3.5 text-red-400 shrink-0" />
-                      <span className="truncate">{cj.properties.name}</span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-red-900/60 text-red-300 ml-auto shrink-0">
-                        {cj.properties.classification}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">
-                Cascade Neighborhood Tiers
-              </h3>
-
-              <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800">
-                <div className="flex justify-between items-center mb-1.5">
-                  <span className="text-xs font-semibold text-slate-200">Tier 1 ? Direct Compromise (1-Hop)</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800">
-                    {blastResult.compromise_tier_1.length} Assets
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-400">
-                  {blastResult.compromise_tier_1.map((n) => n.properties.name).join(', ') || 'None'}
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800">
-                <div className="flex justify-between items-center mb-1.5">
-                  <span className="text-xs font-semibold text-slate-200">Tier 2 ? Transitive Privilege (2-Hops)</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800">
-                    {blastResult.compromise_tier_2.length} Assets
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-400">
-                  {blastResult.compromise_tier_2.map((n) => n.properties.name).join(', ') || 'None'}
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-900/40 border border-slate-800">
-                <div className="flex justify-between items-center mb-1.5">
-                  <span className="text-xs font-semibold text-slate-200">Tier 3 ? Cascade Exfiltration (3-Hops)</span>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-red-950 text-red-400 border border-red-800">
-                    {blastResult.compromise_tier_3.length} Assets
-                  </span>
-                </div>
-                <div className="text-[11px] text-slate-400">
-                  {blastResult.compromise_tier_3.map((n) => n.properties.name).join(', ') || 'None'}
-                </div>
-              </div>
+          <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200">
+            <span className="text-xs text-amber-700 font-semibold">Tier 1 (Direct 1-Hop)</span>
+            <div className="text-2xl font-extrabold text-amber-800 mt-1">
+              {result.compromise_tier_1?.length || 0} Nodes
             </div>
-          </>
-        ) : null}
-      </div>
+          </div>
+
+          <div className="bg-purple-50/70 p-4 rounded-2xl border border-purple-200">
+            <span className="text-xs text-purple-700 font-semibold">Tier 2+ (Transitive)</span>
+            <div className="text-2xl font-extrabold text-purple-800 mt-1">
+              {(result.compromise_tier_2?.length || 0) + (result.compromise_tier_3?.length || 0)} Nodes
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Impact Breakdown Columns */}
+      {result && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Tier 1 */}
+          <div className="bg-slate-50/60 p-4 rounded-2xl border border-slate-200 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800">Tier 1: Direct Adjacency</span>
+              <span className="text-[11px] font-semibold bg-white border border-slate-200 px-2 py-0.5 rounded-full text-slate-700">
+                1 Hop
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {result.compromise_tier_1?.length > 0 ? (
+                result.compromise_tier_1.map((node) => (
+                  <span key={node.id} className="text-[11px] bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-slate-800 font-medium">
+                    {node.properties?.name || node.id}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-slate-400">None</span>
+              )}
+            </div>
+          </div>
+
+          {/* Tier 2 */}
+          <div className="bg-slate-50/60 p-4 rounded-2xl border border-slate-200 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800">Tier 2: Transitive Trust</span>
+              <span className="text-[11px] font-semibold bg-white border border-slate-200 px-2 py-0.5 rounded-full text-slate-700">
+                2 Hops
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {result.compromise_tier_2?.length > 0 ? (
+                result.compromise_tier_2.map((node) => (
+                  <span key={node.id} className="text-[11px] bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-slate-800 font-medium">
+                    {node.properties?.name || node.id}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-slate-400">None</span>
+              )}
+            </div>
+          </div>
+
+          {/* Tier 3 */}
+          <div className="bg-slate-50/60 p-4 rounded-2xl border border-slate-200 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-800">Tier 3: Cascade Perimeter</span>
+              <span className="text-[11px] font-semibold bg-white border border-slate-200 px-2 py-0.5 rounded-full text-slate-700">
+                3 Hops
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {result.compromise_tier_3?.length > 0 ? (
+                result.compromise_tier_3.map((node) => (
+                  <span key={node.id} className="text-[11px] bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-slate-800 font-medium">
+                    {node.properties?.name || node.id}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-slate-400">None</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

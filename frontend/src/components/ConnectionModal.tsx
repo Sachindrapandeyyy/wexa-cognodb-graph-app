@@ -1,150 +1,164 @@
 import React, { useState } from 'react';
-import { X, Database, CheckCircle2, AlertCircle, ExternalLink, Zap } from 'lucide-react';
-import { testConnection } from '../services/api';
+import { X, Database, ExternalLink, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { ConnectionStatus } from '../types/graph';
+import { testConnection } from '../services/api';
 
 interface ConnectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  status: ConnectionStatus | null;
-  onRefreshHealth: () => void;
+  connectionStatus: ConnectionStatus | null;
+  onConnectionUpdated: () => void;
 }
 
 export const ConnectionModal: React.FC<ConnectionModalProps> = ({
   isOpen,
   onClose,
-  status,
-  onRefreshHealth,
+  connectionStatus,
+  onConnectionUpdated,
 }) => {
-  const [uri, setUri] = useState('bolt+s://your-instance.databases.cognodb.cloud');
-  const [user, setUser] = useState('cognodb');
-  const [password, setPassword] = useState('');
-  const [isTesting, setIsTesting] = useState(false);
+  const [uri, setUri] = useState<string>(connectionStatus?.uri || 'bolt+s://<instance-id>.databases.cognodb.cloud');
+  const [user, setUser] = useState<string>('cognodb');
+  const [password, setPassword] = useState<string>('');
+  const [isTesting, setIsTesting] = useState<boolean>(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   if (!isOpen) return null;
 
-  const handleTest = async () => {
+  const handleTestConnection = async () => {
     setIsTesting(true);
     setTestResult(null);
+
     try {
       const res = await testConnection(uri, user, password);
-      setTestResult(res);
       if (res.success) {
-        onRefreshHealth();
+        setTestResult({ success: true, message: res.message || 'Connected to CognoDB Cloud successfully!' });
+        onConnectionUpdated();
+      } else {
+        setTestResult({ success: false, message: res.message || 'Connection failed' });
       }
-    } catch (e: any) {
-      setTestResult({ success: false, message: e.message });
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        message: err?.message || 'Connection failed'
+      });
     } finally {
       setIsTesting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-      <div className="w-full max-w-lg bg-cyber-card border border-cyber-cardBorder rounded-2xl p-6 shadow-2xl flex flex-col gap-4">
-        <div className="flex items-center justify-between border-b border-cyber-cardBorder pb-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl p-6 shadow-2xl flex flex-col gap-5">
+        
+        {/* Header */}
+        <div className="flex items-start justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              <Database className="h-5 w-5" />
+            <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold">
+              <Database className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">CognoDB Cloud Configuration</h2>
-              <p className="text-xs text-slate-400">Connect to your managed CognoDB instance via Bolt</p>
+              <h3 className="font-extrabold text-base text-slate-900">CognoDB Cloud Configuration</h3>
+              <p className="text-xs text-slate-500">Bolt 5.0-5.4 Managed Graph Connection</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-all cursor-pointer"
           >
-            <X className="h-5 w-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-cyan-950/30 border border-cyan-500/30 text-xs space-y-2">
-          <div className="flex items-center justify-between font-bold text-cyan-300">
-            <span>Free Tier Provisioning in Under 60 Seconds</span>
+        {/* 60-Second Setup Info Box */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-900">Get a Free CognoDB Instance (60s)</span>
             <a
               href="https://console.cognodb.com"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1 text-[11px] text-cyan-400 underline hover:text-cyan-300"
+              className="flex items-center gap-1 text-xs font-semibold text-purple-600 hover:text-purple-700"
             >
-              console.cognodb.com <ExternalLink className="h-3 w-3" />
+              <span>console.cognodb.com</span>
+              <ExternalLink className="w-3 h-3" />
             </a>
           </div>
-          <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-300">
-            <li>Log in to CognoDB Cloud console (No credit card needed).</li>
-            <li>Create a free database instance (<code className="text-cyan-400">c0</code> plan).</li>
-            <li>Copy your <code className="text-cyan-400">bolt+s://</code> URI and generated password.</li>
-            <li>Add to <code className="text-cyan-400">.env</code> or test live below!</li>
-          </ol>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            CognoDB Cloud free tier provides 0.5 vCPU, 256MB RAM, and Bolt 5.0-5.4 protocol support with no credit card required.
+          </p>
         </div>
 
-        <div className="space-y-3 text-xs">
-          <div>
-            <label className="font-mono text-[11px] text-slate-400 block mb-1">BOLT URI</label>
+        {/* Credential Form */}
+        <div className="flex flex-col gap-3 text-xs">
+          <div className="flex flex-col gap-1">
+            <label className="font-bold text-slate-700">Bolt URI:</label>
             <input
               type="text"
               value={uri}
               onChange={(e) => setUri(e.target.value)}
-              placeholder="bolt+s://instance-id.databases.cognodb.cloud"
-              className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 font-mono"
+              placeholder="bolt+s://<instance-id>.databases.cognodb.cloud"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300 font-mono text-[11px]"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="font-mono text-[11px] text-slate-400 block mb-1">USERNAME</label>
-              <input
-                type="text"
-                value={user}
-                onChange={(e) => setUser(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 font-mono"
-              />
-            </div>
-            <div>
-              <label className="font-mono text-[11px] text-slate-400 block mb-1">PASSWORD</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="????????????"
-                className="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-cyan-500 font-mono"
-              />
-            </div>
+          <div className="flex flex-col gap-1">
+            <label className="font-bold text-slate-700">Username:</label>
+            <input
+              type="text"
+              value={user}
+              onChange={(e) => setUser(e.target.value)}
+              placeholder="cognodb"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300 font-mono text-[11px]"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="font-bold text-slate-700">Instance Password:</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Generated password from CognoDB console"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-300 font-mono text-[11px]"
+            />
           </div>
         </div>
 
+        {/* Test Connection Output */}
         {testResult && (
-          <div
-            className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-              testResult.success
-                ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/40'
-                : 'bg-red-950/40 text-red-300 border border-red-500/40'
-            }`}
-          >
-            {testResult.success ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
-            <span>{testResult.message}</span>
+          <div className={`p-3.5 rounded-2xl border flex items-center gap-2.5 text-xs ${
+            testResult.success 
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+              : 'bg-rose-50 border-rose-200 text-rose-800'
+          }`}>
+            {testResult.success ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+            )}
+            <span className="font-medium leading-tight">{testResult.message}</span>
           </div>
         )}
 
-        <div className="flex justify-end gap-2 pt-2">
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition-colors"
+            className="px-4 py-2 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold cursor-pointer"
           >
             Close
           </button>
+
           <button
-            onClick={handleTest}
-            disabled={isTesting || !password}
-            className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs font-mono flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            onClick={handleTestConnection}
+            disabled={isTesting}
+            className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-5 py-2 rounded-full text-xs font-semibold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
           >
-            <Zap className="h-3.5 w-3.5 fill-current" />
-            <span>{isTesting ? 'Verifying...' : 'Test Connection'}</span>
+            {isTesting && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+            <span>{isTesting ? 'Verifying Bolt...' : 'Test Connection'}</span>
           </button>
         </div>
+
       </div>
     </div>
   );
