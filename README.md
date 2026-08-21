@@ -2,6 +2,7 @@
 
 <div align="center">
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-aegisgraph--app--mn50.onrender.com-blueviolet?style=for-the-badge&logo=render)](https://aegisgraph-app-mn50.onrender.com/)
 [![CognoDB Compatible](https://img.shields.io/badge/Database-CognoDB%20(Bolt%205.0--5.4)-00f0ff?style=for-the-badge&logo=neo4j)](https://cognodb.com)
 [![FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%7C%20Python%203.14-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com)
 [![React + Vite](https://img.shields.io/badge/Frontend-React%2018%20%7C%20TypeScript%20%7C%20Tailwind-61DAFB?style=for-the-badge&logo=react)](https://vitejs.dev)
