@@ -1,0 +1,5 @@
+node_modules/
+backend/venv/
+.pytest_cache/
+.git/
+.env

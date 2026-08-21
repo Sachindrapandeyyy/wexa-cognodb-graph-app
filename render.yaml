@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: aegisgraph-app
+    env: python
+    buildCommand: "cd frontend && npm install && npm run build && cd ../backend && pip install -r requirements.txt"
+    startCommand: "cd backend && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: DEMO_MODE_FALLBACK
+        value: "true"
+      - key: COGNODB_URI
+        sync: false
+      - key: COGNODB_USER
+        sync: false
+      - key: COGNODB_PASSWORD
+        sync: false
+      - key: COGNODB_DATABASE
+        value: neo4j
